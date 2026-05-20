@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=BkpView
+Comment=3D PBR model viewer (glTF, OBJ, STL, PLY)
+Exec=bkpview %f
+Icon=bkpview
+Type=Application
+Categories=Graphics;3DGraphics;Viewer;
+MimeType=model/gltf+json;model/gltf-binary;model/obj;model/stl;
+StartupNotify=true
+StartupWMClass=bkpview

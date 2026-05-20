@@ -1,0 +1,91 @@
+============================================================
+  BkpView - TODO v2.0
+============================================================
+
+------------------------------------------------------------
+RENDERING
+------------------------------------------------------------
+
+[ ] Skybox / HDR environment
+    - charger un fichier .hdr / .exr
+    - toggle on/off
+    - rotation de l'env (azimuth)
+    - intensite separee de la lumiere directionnelle
+
+[ ] IBL (Image-Based Lighting)
+    - diffuse irradiance + specular prefiltered (depend skybox)
+    - si IBL actif : le plan fait reflet automatique
+      -> parametre "roughness" du plan : 0 = miroir, 1 = mat
+
+[ ] Metallic/roughness override par material
+    - si un material n'a que albedo/baseColor (pas de texture ORM)
+    - exposer sliders metallic 0-1 et roughness 0-1 dans l'UI
+
+[ ] Modes de rendu supplementaires
+    - Surfaces : triangles colores aleatoirement (debug topo)
+    - Wireframe : lignes uniquement
+    - Normal lines : fleches/lignes dans la direction des normales
+      (longueur reglable)
+    - (garder PBR / Flat / Normals existants)
+
+[ ] Tone mapping selecteur
+    - None (linear), ACES filmic, Reinhard
+    - Exposure globale (+/-)
+
+[ ] Post-process optionnels
+    - Bloom (threshold + intensite)
+    - SSAO (radius + intensite)
+
+------------------------------------------------------------
+CAMERA / NAVIGATION
+------------------------------------------------------------
+
+[ ] Vues cameras preset (touches clavier)
+    - Front / Back / Left / Right / Top / Bottom
+    - Isometrique
+
+[ ] Camera orthographique toggle (persp / ortho)
+
+------------------------------------------------------------
+SCENE / MODELE
+------------------------------------------------------------
+
+[ ] PBR par defaut pour OBJ/STL/PLY (sans texture)
+    - sliders Metallic et Roughness dans le panel
+    - s'applique quand le modele n'a pas de material/texture
+
+[ ] Lecture des fichiers 3MF
+    - verifier si le format est ouvert / header-only disponible
+    - si lib header-only : implementer comme OBJ/PLY/STL
+    - si lib lourde ou proprietaire : reporter
+
+
+
+[ ] Screenshot : sauvegarder la vue courante en PNG
+    - bouton dans le panel ou raccourci clavier
+
+[ ] Background color / gradient
+    - quand pas de skybox : couleur de fond choisie
+    - option gradient haut/bas
+
+[ ] Affichage bounding box (toggle)
+    - AABB autour du modele entier ou par mesh
+
+[ ] Multi-modele
+    - charger plusieurs fichiers en meme temps
+    - liste de modeles dans le panel, toggle visible/cache
+
+[ ] Comparaison split-screen (stretch goal)
+    - 2 modeles cote a cote ou split vertical
+
+------------------------------------------------------------
+UI / UX
+------------------------------------------------------------
+
+[ ] Raccourcis clavier supplementaires
+    - W = Wireframe (quand mode existe)
+    - S = Shadow toggle
+
+[ ] Drag & drop multiple fichiers
+
+============================================================

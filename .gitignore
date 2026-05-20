@@ -1,0 +1,14 @@
+build/
+*.o
+*.a
+*.so
+*.lib
+*.dll
+*.pdb
+*.spv
+.cache/
+compile_commands.json
+
+# docs
+docs/html/
+docs/doxygen-awesome-css/
