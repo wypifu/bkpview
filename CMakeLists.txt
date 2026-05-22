@@ -134,3 +134,8 @@ endforeach()
 
 add_custom_target(shaders DEPENDS ${SHADER_SPVS})
 add_dependencies(bkpview shaders)
+
+install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/bkpview/shaders
+    FILES_MATCHING PATTERN "*.spv"
+)
