@@ -107,6 +107,10 @@ else()
     target_link_libraries(bkpview ${BKP_LIB} ${Vulkan_LIBRARIES} glfw pthread m)
 endif()
 
+if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_link_options(bkpview PRIVATE -Wl,/SUBSYSTEM:WINDOWS,/ENTRY:mainCRTStartup)
+endif()
+
 # ---------- shaders ----------
 set(SHADER_DIR    ${CMAKE_SOURCE_DIR}/shaders)
 set(SHADER_OUTDIR ${CMAKE_BINARY_DIR}/shaders)
