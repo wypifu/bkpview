@@ -212,19 +212,29 @@ void Renderer::_createDefaultTextures(BkpGpuAdapter adp) {
     make1x1(adp, &defEmissive,   0,   0,   0, 255);
 }
 
-void Renderer::_createPipelines(BkpGpuAdapter adp, VkFormat colorFmt) {
+void Renderer::_createPipelines(BkpGpuAdapter adp, VkFormat colorFmt)
+{
+    auto shaderPath = [](const char* relative) -> const char* {
+#ifdef BKPVIEW_SHADER_DIR
+        static char path[512];
+        snprintf(path, sizeof(path), "%s/%s", BKPVIEW_SHADER_DIR, relative);
+        return path;
+#else
+        return bkpExePath(relative);
+#endif
+    };
     /* shaders */
-    bkpCreateShaderModule(adp, bkpExePath("shaders/pbr.vert.spv"),      &pbrVert);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/pbr.frag.spv"),      &pbrFrag);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/pbr_skin.vert.spv"), &skinVert);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/grid.vert.spv"),     &gridVert);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/grid.frag.spv"),     &gridFrag);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/plan.frag.spv"),     &planFrag);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/shadow.vert.spv"),      &shadowVert);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/shadow_skin.vert.spv"), &shadowSkinVert);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/shadow.frag.spv"),      &shadowFrag);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/aabb.vert.spv"),     &aabbVert);
-    bkpCreateShaderModule(adp, bkpExePath("shaders/aabb.frag.spv"),     &aabbFrag);
+    bkpCreateShaderModule(adp, shaderPath("shaders/pbr.vert.spv"),      &pbrVert);
+    bkpCreateShaderModule(adp, shaderPath("shaders/pbr.frag.spv"),      &pbrFrag);
+    bkpCreateShaderModule(adp, shaderPath("shaders/pbr_skin.vert.spv"), &skinVert);
+    bkpCreateShaderModule(adp, shaderPath("shaders/grid.vert.spv"),     &gridVert);
+    bkpCreateShaderModule(adp, shaderPath("shaders/grid.frag.spv"),     &gridFrag);
+    bkpCreateShaderModule(adp, shaderPath("shaders/plan.frag.spv"),     &planFrag);
+    bkpCreateShaderModule(adp, shaderPath("shaders/shadow.vert.spv"),      &shadowVert);
+    bkpCreateShaderModule(adp, shaderPath("shaders/shadow_skin.vert.spv"), &shadowSkinVert);
+    bkpCreateShaderModule(adp, shaderPath("shaders/shadow.frag.spv"),      &shadowFrag);
+    bkpCreateShaderModule(adp, shaderPath("shaders/aabb.vert.spv"),     &aabbVert);
+    bkpCreateShaderModule(adp, shaderPath("shaders/aabb.frag.spv"),     &aabbFrag);
 
     BkpShaderModule* pbrMods[]    = {&pbrVert,    &pbrFrag};
     BkpShaderModule* skinMods[]   = {&skinVert,   &pbrFrag};
