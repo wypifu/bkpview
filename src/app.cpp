@@ -138,7 +138,8 @@ bool App::init(int w, int h) {
     cfg.vulkanContextInfo.winWidth         = w;
     cfg.vulkanContextInfo.winHeight        = h;
     cfg.vulkanContextInfo.maxFrameInFlight = MAX_FRAMES;
-    cfg.appName = "BkpView 1.0";
+    cfg.appName = "BkpView 0.6";
+    cfg.contextMemoryInfo.gfxPageMemorySize = 1024 * 1024 * 8; /* 8 MiB — default 4 MiB too small for 9 pipelines */
 
     if(!bkpInit(&ctx, &cfg)) return false;
     bkpActivateGpuAdapter(&ctx.vulkanContext, &adp, nullptr);

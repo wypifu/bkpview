@@ -2,6 +2,9 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
 
 static char s_result[4096];
 
@@ -51,15 +54,17 @@ const char * openFileDialog(const char * title) {
     for(int i = 0; cmds[i]; ++i) {
         FILE * p = popen(cmds[i], "r");
         if(!p) continue;
-        if(fgets(s_result, sizeof(s_result), p)) {
-            pclose(p);
-            /* strip trailing newline */
+        int gotOutput = (fgets(s_result, sizeof(s_result), p) != NULL);
+        int status    = pclose(p);
+        int code      = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+
+        if(gotOutput) {
             size_t n = strlen(s_result);
             if(n && s_result[n-1] == '\n') s_result[n-1] = '\0';
             if(s_result[0]) return s_result;
-        } else {
-            pclose(p);
         }
+        /* exit 127 = command not found → try next tool; anything else = cancel */
+        if(code != 127) return NULL;
     }
     return NULL;
 }

@@ -6,6 +6,7 @@ build/
 *.dll
 *.pdb
 *.spv
+.vscode/
 .cache/
 compile_commands.json
 

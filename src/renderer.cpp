@@ -12,6 +12,7 @@ extern "C" {
 #include <gfx/vulkan/include/vk_cmd.h>
 #include <gfx/vulkan/include/vkAllocator.h>
 #include <include/type.h>
+#include <system/include/bkp_path.h>
 }
 
 /* ---- helpers ---------------------------------------------------------- */
@@ -42,7 +43,8 @@ static BkpPipelineGraphic makePipeline(
     VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT,
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT,
     VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-    bool dynamicCull = false)
+    bool dynamicCull = false,
+    BkpPipelineLayout* sharedLayout = nullptr)
 {
     BkpPipelineGraphic ppl = {};
     VkDynamicState dynSt[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
@@ -90,7 +92,10 @@ static BkpPipelineGraphic makePipeline(
     ppl.info.dynamicState        = bkpDefaultDynamicStates(ppl.info.dynamicStates, dynCount);
     ppl.info.dynamicStateEnabled = VK_TRUE;
 
-    bkpCreatePipelineLayoutFromShader(adp, prog, &ppl.pipelineLayout);
+    if(sharedLayout)
+        ppl.pipelineLayout = *sharedLayout;
+    else
+        bkpCreatePipelineLayoutFromShader(adp, prog, &ppl.pipelineLayout);
     ppl.pipelineCache.info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     bkpCreatePipelineCache(adp, &ppl.pipelineCache);
     bkpCreatePipelineGraphic(adp, &ppl);
@@ -209,17 +214,17 @@ void Renderer::_createDefaultTextures(BkpGpuAdapter adp) {
 
 void Renderer::_createPipelines(BkpGpuAdapter adp, VkFormat colorFmt) {
     /* shaders */
-    bkpCreateShaderModule(adp, "shaders/pbr.vert.spv",      &pbrVert);
-    bkpCreateShaderModule(adp, "shaders/pbr.frag.spv",      &pbrFrag);
-    bkpCreateShaderModule(adp, "shaders/pbr_skin.vert.spv", &skinVert);
-    bkpCreateShaderModule(adp, "shaders/grid.vert.spv",     &gridVert);
-    bkpCreateShaderModule(adp, "shaders/grid.frag.spv",     &gridFrag);
-    bkpCreateShaderModule(adp, "shaders/plan.frag.spv",     &planFrag);
-    bkpCreateShaderModule(adp, "shaders/shadow.vert.spv",      &shadowVert);
-    bkpCreateShaderModule(adp, "shaders/shadow_skin.vert.spv", &shadowSkinVert);
-    bkpCreateShaderModule(adp, "shaders/shadow.frag.spv",      &shadowFrag);
-    bkpCreateShaderModule(adp, "shaders/aabb.vert.spv",     &aabbVert);
-    bkpCreateShaderModule(adp, "shaders/aabb.frag.spv",     &aabbFrag);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/pbr.vert.spv"),      &pbrVert);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/pbr.frag.spv"),      &pbrFrag);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/pbr_skin.vert.spv"), &skinVert);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/grid.vert.spv"),     &gridVert);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/grid.frag.spv"),     &gridFrag);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/plan.frag.spv"),     &planFrag);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/shadow.vert.spv"),      &shadowVert);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/shadow_skin.vert.spv"), &shadowSkinVert);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/shadow.frag.spv"),      &shadowFrag);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/aabb.vert.spv"),     &aabbVert);
+    bkpCreateShaderModule(adp, bkpExePath("shaders/aabb.frag.spv"),     &aabbFrag);
 
     BkpShaderModule* pbrMods[]    = {&pbrVert,    &pbrFrag};
     BkpShaderModule* skinMods[]   = {&skinVert,   &pbrFrag};
@@ -266,10 +271,22 @@ void Renderer::_createPipelines(BkpGpuAdapter adp, VkFormat colorFmt) {
                         false, VK_CULL_MODE_BACK_BIT, msaaSamples,
                         VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true);
 
+    pbrPipelineBlend = makePipeline(adp, &pbrProg, colorFmt, &binding, 1, attrs, 4,
+                        VK_POLYGON_MODE_FILL, VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS,
+                        true, VK_CULL_MODE_BACK_BIT, msaaSamples,
+                        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true,
+                        &pbrPipeline.pipelineLayout);
+
     pbrPipelineLBS = makePipeline(adp, &skinProg, colorFmt, &bindingSkin, 1, skinAttrs, 6,
                         VK_POLYGON_MODE_FILL, VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS,
                         false, VK_CULL_MODE_BACK_BIT, msaaSamples,
                         VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true);
+
+    pbrPipelineLBSBlend = makePipeline(adp, &skinProg, colorFmt, &bindingSkin, 1, skinAttrs, 6,
+                        VK_POLYGON_MODE_FILL, VK_TRUE, VK_FALSE, VK_COMPARE_OP_LESS,
+                        true, VK_CULL_MODE_BACK_BIT, msaaSamples,
+                        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true,
+                        &pbrPipelineLBS.pipelineLayout);
 
     gridPipeline   = makePipeline(adp, &gridProg, colorFmt, nullptr, 0, nullptr, 0,
                         VK_POLYGON_MODE_FILL, VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL,
@@ -654,10 +671,44 @@ void Renderer::draw(BkpGpuAdapter adp, VkCommandBuffer cmd,
 
     /* draw meshes */
     if(model && model->nodeCount > 0 && !matGPU.empty()) {
+        /* opaque pass */
         bkpCmdBindDescriptorSets(cmd, pbrPipeline.pipelineLayout.layout, 0, 1, &frameDSet[frame]);
-
         for(uint32_t r = 0; r < model->rootNodeCount; r++)
             _drawNode(cmd, model, model->rootNodes[r], frame);
+
+        /* transparent pass — collect, sort back-to-front, draw */
+        struct TransDraw { int nodeIdx; uint32_t subIdx; float distSq; };
+        std::vector<TransDraw> trans;
+        BkpVec3 cp = cam.position();
+
+        std::function<void(int)> collect = [&](int ni) {
+            if(ni < 0 || ni >= (int)model->nodeCount) return;
+            BkpNode& node = model->nodes[ni];
+            for(uint32_t p = 0; p < node.meshCount; p++) {
+                uint32_t mi = (uint32_t)node.meshIdx + p;
+                if(mi >= model->meshCount) break;
+                BkpModelMesh& mesh = model->meshes[mi];
+                BkpMaterial* mat = (mesh.materialIdx >= 0 && (uint32_t)mesh.materialIdx < model->materialCount)
+                                   ? &model->materials[mesh.materialIdx] : nullptr;
+                if(mat && mat->alphaMode == BKP_ALPHA_BLEND) {
+                    const BkpMat4& w = (ni < (int)_worldTransforms.size())
+                                       ? _worldTransforms[(uint32_t)ni] : bkpIdentityMat4();
+                    float dx = w.mLine3.x - cp.x, dy = w.mLine3.y - cp.y, dz = w.mLine3.z - cp.z;
+                    trans.push_back({ni, p, dx*dx + dy*dy + dz*dz});
+                }
+            }
+            for(uint32_t ci = 0; ci < node.childCount; ci++)
+                collect(node.children[ci]);
+        };
+        for(uint32_t r = 0; r < model->rootNodeCount; r++)
+            collect(model->rootNodes[r]);
+
+        if(!trans.empty()) {
+            std::sort(trans.begin(), trans.end(),
+                [](const TransDraw& a, const TransDraw& b){ return a.distSq > b.distSq; });
+            for(auto& td : trans)
+                _drawTransMesh(cmd, model, td.nodeIdx, td.subIdx, frame);
+        }
     }
 
     /* plan */
@@ -733,6 +784,13 @@ void Renderer::_drawNode(VkCommandBuffer cmd, BkpModel* model,
         if(mi >= model->meshCount) break;
         BkpModelMesh& mesh = model->meshes[mi];
 
+        /* skip transparent meshes — drawn in a sorted second pass */
+        {
+            BkpMaterial* m = (mesh.materialIdx >= 0 && (uint32_t)mesh.materialIdx < model->materialCount)
+                             ? &model->materials[mesh.materialIdx] : nullptr;
+            if(m && m->alphaMode == BKP_ALPHA_BLEND) continue;
+        }
+
         bool skinned = (mesh.isSkinned != 0) && (node.skinIdx >= 0);
 
         VkPipelineLayout layout;
@@ -805,6 +863,86 @@ void Renderer::_drawNode(VkCommandBuffer cmd, BkpModel* model,
 
     for(uint32_t c = 0; c < node.childCount; c++)
         _drawNode(cmd, model, node.children[c], frame);
+}
+
+void Renderer::_drawTransMesh(VkCommandBuffer cmd, BkpModel* model,
+                               int nodeIdx, uint32_t subIdx, uint32_t frame) {
+    if(nodeIdx < 0 || nodeIdx >= (int)model->nodeCount) return;
+    BkpNode& node = model->nodes[nodeIdx];
+    uint32_t mi = (uint32_t)node.meshIdx + subIdx;
+    if(mi >= model->meshCount) return;
+    BkpModelMesh& mesh = model->meshes[mi];
+
+    const BkpMat4& world = (nodeIdx < (int)_worldTransforms.size())
+                           ? _worldTransforms[(uint32_t)nodeIdx] : bkpIdentityMat4();
+
+    bool skinned = (mesh.isSkinned != 0) && (node.skinIdx >= 0);
+    VkPipelineLayout layout;
+    if(skinned) {
+        bkpCmdBindPipeline(cmd, pbrPipelineLBSBlend.pipeline);
+        layout = pbrPipelineLBSBlend.pipelineLayout.layout;
+        bkpCmdBindDescriptorSets(cmd, layout, 0, 1, &frameDSet[frame]);
+        bkpCmdBindDescriptorSets(cmd, layout, 2, 1, &jointDSet[frame]);
+    } else {
+        bkpCmdBindPipeline(cmd, pbrPipelineBlend.pipeline);
+        layout = pbrPipelineBlend.pipelineLayout.layout;
+        bkpCmdBindDescriptorSets(cmd, layout, 0, 1, &frameDSet[frame]);
+    }
+
+    int matIdx = (mesh.materialIdx >= 0 && (uint32_t)mesh.materialIdx < (uint32_t)matGPU.size())
+                 ? mesh.materialIdx : 0;
+    bkpCmdBindDescriptorSets(cmd, layout, 1, 1, &matGPU[matIdx].ds);
+
+    MeshPC pc = {};
+    if(skinned) {
+        BkpMat4 ident = bkpIdentityMat4();
+        memcpy(pc.model, &ident, sizeof(BkpMat4));
+    } else {
+        memcpy(pc.model, &world, sizeof(BkpMat4));
+    }
+
+    BkpMaterial* mat = (mesh.materialIdx >= 0 && (uint32_t)mesh.materialIdx < model->materialCount)
+                       ? &model->materials[mesh.materialIdx] : nullptr;
+    if(mat) {
+        memcpy(pc.baseColor, mat->baseColor, 16);
+        pc.metallic  = mat->metallic;
+        pc.roughness = mat->roughness;
+        pc.flags = (mat->albedoIdx            >= 0 ? 1 : 0)
+                 | (mat->normalIdx            >= 0 ? 2 : 0)
+                 | (mat->metallicRoughnessIdx >= 0 ? 4 : 0)
+                 | (mat->emissiveIdx          >= 0 ? 8 : 0);
+    } else {
+        pc.baseColor[0] = pc.baseColor[1] = pc.baseColor[2] = 0.72f;
+        pc.baseColor[3] = 1.0f;
+        pc.roughness    = 0.5f;
+    }
+    pc.renderMode = (int32_t)renderMode;
+    if(renderMode == RenderMode::Flat) {
+        pc.baseColor[0] = flatColor[0];
+        pc.baseColor[1] = flatColor[1];
+        pc.baseColor[2] = flatColor[2];
+        pc.baseColor[3] = 1.0f;
+    }
+
+    bkpCmdPushConstants(cmd, layout,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        0, sizeof(MeshPC), &pc);
+
+    VkCullModeFlags cull = (mat && mat->doubleSided) ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT;
+    vkCmdSetCullMode(cmd, cull);
+
+    VkBuffer vkBuf; VkDeviceSize off;
+    bkpGetBuffer(mesh.geo.buffer, &vkBuf);
+    bkpGetBufferOffset(mesh.geo.buffer, &off);
+    bkpCmdBindVertexBuffer(cmd, 0, vkBuf, off);
+
+    if(mesh.geo.hasIndices) {
+        VkDeviceSize idx = off + (VkDeviceSize)mesh.geo.indicesOffset;
+        bkpCmdBindIndexBuffer(cmd, vkBuf, idx, mesh.geo.indexType);
+        bkpCmdDrawIndexed(cmd, mesh.geo.count, 0, 0);
+    } else {
+        bkpCmdDraw(cmd, mesh.geo.count, 0);
+    }
 }
 
 /* ---- attachment info helpers ------------------------------------------ */
@@ -894,7 +1032,12 @@ void Renderer::_destroyPipelines(BkpGpuAdapter adp) {
         bkpDestroyPipelineLayout(adp, &pl.pipelineLayout);
     };
     destroyPL(pbrPipeline);
+    /* blend variants share the layout with their opaque counterpart — only destroy pipeline+cache */
+    bkpDestroyGraphicPipeline(adp, &pbrPipelineBlend);
+    bkpDestroyPipelineCache(adp, &pbrPipelineBlend.pipelineCache);
     destroyPL(pbrPipelineLBS);
+    bkpDestroyGraphicPipeline(adp, &pbrPipelineLBSBlend);
+    bkpDestroyPipelineCache(adp, &pbrPipelineLBSBlend.pipelineCache);
     destroyPL(gridPipeline);
     destroyPL(planPipeline);
     destroyPL(shadowPipeline);

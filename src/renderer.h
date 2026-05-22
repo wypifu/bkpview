@@ -62,9 +62,11 @@ struct Renderer {
     static constexpr uint32_t SHADOW_DIM = 2048;
 
     /* --- static (non-skinned) PBR pipeline --- */
-    BkpPipelineGraphic pbrPipeline    = {};
+    BkpPipelineGraphic pbrPipeline      = {};
+    BkpPipelineGraphic pbrPipelineBlend = {};   /* blend, depth-write off */
     /* --- LBS skinned PBR pipeline (pbr_skin.vert) --- */
-    BkpPipelineGraphic pbrPipelineLBS = {};
+    BkpPipelineGraphic pbrPipelineLBS      = {};
+    BkpPipelineGraphic pbrPipelineLBSBlend = {};   /* blend, depth-write off */
     /* --- grid pipeline --- */
     BkpPipelineGraphic gridPipeline   = {};
     /* --- plan pipeline (reuses gridVert + planFrag) --- */
@@ -194,4 +196,5 @@ private:
 
     void _drawNode      (VkCommandBuffer cmd, BkpModel* model, int nodeIdx, uint32_t frame);
     void _drawNodeShadow(VkCommandBuffer cmd, BkpModel* model, int nodeIdx, uint32_t frame);
+    void _drawTransMesh (VkCommandBuffer cmd, BkpModel* model, int nodeIdx, uint32_t subIdx, uint32_t frame);
 };
