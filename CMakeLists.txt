@@ -135,6 +135,10 @@ endforeach()
 add_custom_target(shaders DEPENDS ${SHADER_SPVS})
 add_dependencies(bkpview shaders)
 
+if(DEFINED BKPVIEW_SHADER_DIR)
+    target_compile_definitions(bkpview PRIVATE BKPVIEW_SHADER_DIR="${BKPVIEW_SHADER_DIR}")
+endif()
+
 install(TARGETS bkpview
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
