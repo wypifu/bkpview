@@ -19,8 +19,16 @@ if(NOT BKP_ROOT)
 endif()
 message(STATUS "BKP_ROOT : ${BKP_ROOT}")
 
-# Linux: shared lib (.so); Windows: static lib (.lib/.a)
-if(WIN32)
+# -DLINK_MODE=static  → libblukpastStatic.a
+# -DLINK_MODE=dynamic → libblukpast.so  (default)
+if(NOT DEFINED LINK_MODE)
+    set(LINK_MODE dynamic)
+endif()
+string(TOLOWER "${LINK_MODE}" LINK_MODE_LOWER)
+message(STATUS "LINK_MODE: ${LINK_MODE_LOWER}")
+
+unset(BKP_LIB CACHE)
+if(WIN32 OR LINK_MODE_LOWER MATCHES "static")
     find_library(BKP_LIB
         NAMES blukpastStatic
         HINTS "${BKP_ROOT}/build" "${BKP_ROOT}/build/Release" "${BKP_ROOT}/build/Debug"
@@ -32,7 +40,6 @@ else()
         HINTS "${BKP_ROOT}/build" "${BKP_ROOT}/build/Release" "${BKP_ROOT}/build/Debug"
         REQUIRED
     )
-    # embed the bkp build dir so the binary finds libblukpast.so at runtime
     get_filename_component(BKP_LIB_DIR "${BKP_LIB}" DIRECTORY)
     set(CMAKE_BUILD_RPATH "${BKP_LIB_DIR}")
 endif()

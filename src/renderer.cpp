@@ -1,5 +1,6 @@
 #include "renderer.h"
 
+#include <cstdio>
 #include <cstring>
 #include <cmath>
 #include <algorithm>
@@ -371,21 +372,27 @@ void Renderer::_rebuildDescPool(BkpGpuAdapter adp, uint32_t matCapacity) {
 }
 
 void Renderer::loadModel(BkpGpuAdapter adp, BkpModel* model) {
+    fprintf(stdout, "  [R] free old DS\n"); fflush(stdout);
     for(auto& m : matGPU)
         if(m.ds != VK_NULL_HANDLE)
             bkpFreeDescriptorSet(adp, &descPool, m.ds);
     matGPU.clear();
 
     uint32_t n = std::max(model->materialCount, 1u);
+    fprintf(stdout, "  [R] %u materials — pool cap %u\n", n, _poolMatCapacity); fflush(stdout);
     if(n > _poolMatCapacity) {
         uint32_t cap = _poolMatCapacity ? _poolMatCapacity : 256;
         while(cap < n) cap <<= 1;
+        fprintf(stdout, "  [R] rebuildDescPool cap=%u\n", cap); fflush(stdout);
         _rebuildDescPool(adp, cap);
+        fprintf(stdout, "  [R] rebuildDescPool done\n"); fflush(stdout);
     }
 
     matGPU.resize(n);
+    fprintf(stdout, "  [R] binding %u material DS\n", n); fflush(stdout);
     for(uint32_t i = 0; i < n; i++)
         _bindMaterialDS(adp, i, model);
+    fprintf(stdout, "  [R] all DS bound\n"); fflush(stdout);
 
     aabbMin = bkpVec3(model->aabbMin[0], model->aabbMin[1], model->aabbMin[2]);
     aabbMax = bkpVec3(model->aabbMax[0], model->aabbMax[1], model->aabbMax[2]);
@@ -493,7 +500,8 @@ void Renderer::drawShadow(BkpGpuAdapter adp, VkCommandBuffer cmd,
                           const BkpMat4& rootTransform, Animator* anim) {
     /* first call: transition shadow map from UNDEFINED → READ_ONLY so
        frameDSet binding 1 is in a valid state even when shadows are off */
-    if(!_shadowMapReady) {
+    if(!_shadowMapReady)
+    {
         BkpImageBarrierInfo b = {
             .image     = shadowMapImg.images[0],
             .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -510,9 +518,12 @@ void Renderer::drawShadow(BkpGpuAdapter adp, VkCommandBuffer cmd,
     if(!showShadow || !model) return;
 
     /* pre-pass: compute world transforms (used by shadow draw + main draw) */
-    if(anim && !anim->worldTransforms.empty()) {
+    if(anim && !anim->worldTransforms.empty())
+    {
         _worldTransforms = anim->worldTransforms;
-    } else {
+    }
+    else
+    {
         _worldTransforms.resize(model->nodeCount);
         for(uint32_t r = 0; r < model->rootNodeCount; r++)
             _buildWorldTransforms(model, model->rootNodes[r], rootTransform);
@@ -760,22 +771,30 @@ void Renderer::draw(BkpGpuAdapter adp, VkCommandBuffer cmd,
             drawBox(identity, mn, mx, 1.f, 1.f, 0.f); /* yellow */
         }
 
-        if(showMeshAabb && model->nodeCount > 0) {
-            std::function<void(int)> drawNodeAabb = [&](int nodeIdx) {
-                if(nodeIdx < 0 || nodeIdx >= (int)model->nodeCount) return;
-                BkpNode& node = model->nodes[nodeIdx];
-                if(node.meshIdx >= 0 && node.meshIdx < (int)model->meshCount) {
-                    const BkpModelMesh& mesh = model->meshes[(uint32_t)node.meshIdx];
-                    const BkpMat4& world = (nodeIdx < (int)_worldTransforms.size())
-                                          ? _worldTransforms[(uint32_t)nodeIdx]
-                                          : bkpIdentityMat4();
-                    drawBox(world, mesh.meshAabbMin, mesh.meshAabbMax, 0.f, 1.f, 1.f); /* cyan */
-                }
-                for(int c = 0; c < node.childCount; ++c)
-                    drawNodeAabb(node.children[c]);
-            };
-            for(uint32_t r = 0; r < model->rootNodeCount; r++)
-                drawNodeAabb(model->rootNodes[r]);
+        if(showMeshAabb && model->nodeCount > 0)
+        {
+          std::function<void(int)> drawNodeAabb = [&](int nodeIdx) {
+            if(nodeIdx < 0 || nodeIdx >= (int)model->nodeCount) return;
+
+            BkpNode& node = model->nodes[nodeIdx];
+
+            if(node.meshIdx >= 0 && node.meshIdx < (int)model->meshCount)
+            {
+              const BkpModelMesh& mesh = model->meshes[(uint32_t)node.meshIdx];
+              const BkpMat4& world = (nodeIdx < (int)_worldTransforms.size())
+                ? _worldTransforms[(uint32_t)nodeIdx]
+                : bkpIdentityMat4();
+              drawBox(world, mesh.meshAabbMin, mesh.meshAabbMax, 0.f, 1.f, 1.f); /* cyan */
+            }
+            for(int c = 0; c < (int)node.childCount; ++c)
+            {
+              drawNodeAabb(node.children[c]);
+            }
+          };
+          for(uint32_t r = 0; r < model->rootNodeCount; r++)
+          {
+            drawNodeAabb(model->rootNodes[r]);
+          }
         }
     }
 }
@@ -789,7 +808,8 @@ void Renderer::_drawNode(VkCommandBuffer cmd, BkpModel* model,
                            ? _worldTransforms[(uint32_t)nodeIdx]
                            : bkpIdentityMat4();
 
-    for(uint32_t p = 0; p < node.meshCount; p++) {
+    for(uint32_t p = 0; p < node.meshCount; p++)
+    {
         uint32_t mi = (uint32_t)node.meshIdx + p;
         if(mi >= model->meshCount) break;
         BkpModelMesh& mesh = model->meshes[mi];
@@ -804,12 +824,15 @@ void Renderer::_drawNode(VkCommandBuffer cmd, BkpModel* model,
         bool skinned = (mesh.isSkinned != 0) && (node.skinIdx >= 0);
 
         VkPipelineLayout layout;
-        if(skinned) {
+        if(skinned)
+        {
             bkpCmdBindPipeline(cmd, pbrPipelineLBS.pipeline);
             layout = pbrPipelineLBS.pipelineLayout.layout;
             bkpCmdBindDescriptorSets(cmd, layout, 0, 1, &frameDSet[frame]);
             bkpCmdBindDescriptorSets(cmd, layout, 2, 1, &jointDSet[frame]);
-        } else {
+        }
+        else
+        {
             bkpCmdBindPipeline(cmd, pbrPipeline.pipeline);
             layout = pbrPipeline.pipelineLayout.layout;
             bkpCmdBindDescriptorSets(cmd, layout, 0, 1, &frameDSet[frame]);
@@ -820,30 +843,37 @@ void Renderer::_drawNode(VkCommandBuffer cmd, BkpModel* model,
         bkpCmdBindDescriptorSets(cmd, layout, 1, 1, &matGPU[matIdx].ds);
 
         MeshPC pc = {};
-        if(skinned) {
+        if(skinned)
+        {
             BkpMat4 ident = bkpIdentityMat4();
             memcpy(pc.model, &ident, sizeof(BkpMat4));
-        } else {
+        }
+        else
+        {
             memcpy(pc.model, &world, sizeof(BkpMat4));
         }
 
         BkpMaterial* mat = (mesh.materialIdx >= 0 && (uint32_t)mesh.materialIdx < model->materialCount)
                            ? &model->materials[mesh.materialIdx] : nullptr;
-        if(mat) {
-            memcpy(pc.baseColor, mat->baseColor, 16);
-            pc.metallic  = mat->metallic;
-            pc.roughness = mat->roughness;
-            pc.flags = (mat->albedoIdx            >= 0 ? 1 : 0)
-                     | (mat->normalIdx            >= 0 ? 2 : 0)
-                     | (mat->metallicRoughnessIdx >= 0 ? 4 : 0)
-                     | (mat->emissiveIdx          >= 0 ? 8 : 0);
-        } else {
-            pc.baseColor[0] = pc.baseColor[1] = pc.baseColor[2] = 0.72f;
-            pc.baseColor[3] = 1.0f;
-            pc.roughness    = 0.5f;
+        if(mat)
+        {
+          memcpy(pc.baseColor, mat->baseColor, 16);
+          pc.metallic  = mat->metallic;
+          pc.roughness = mat->roughness;
+          pc.flags = (mat->albedoIdx            >= 0 ? 1 : 0)
+            | (mat->normalIdx            >= 0 ? 2 : 0)
+            | (mat->metallicRoughnessIdx >= 0 ? 4 : 0)
+            | (mat->emissiveIdx          >= 0 ? 8 : 0);
+        }
+        else
+        {
+          pc.baseColor[0] = pc.baseColor[1] = pc.baseColor[2] = 0.72f;
+          pc.baseColor[3] = 1.0f;
+          pc.roughness    = 0.5f;
         }
         pc.renderMode = (int32_t)renderMode;
-        if(renderMode == RenderMode::Flat) {
+        if(renderMode == RenderMode::Flat)
+        {
             pc.baseColor[0] = flatColor[0];
             pc.baseColor[1] = flatColor[1];
             pc.baseColor[2] = flatColor[2];
@@ -862,21 +892,27 @@ void Renderer::_drawNode(VkCommandBuffer cmd, BkpModel* model,
         bkpGetBufferOffset(mesh.geo.buffer, &off);
         bkpCmdBindVertexBuffer(cmd, 0, vkBuf, off);
 
-        if(mesh.geo.hasIndices) {
+        if(mesh.geo.hasIndices)
+        {
             VkDeviceSize idx = off + (VkDeviceSize)mesh.geo.indicesOffset;
             bkpCmdBindIndexBuffer(cmd, vkBuf, idx, mesh.geo.indexType);
             bkpCmdDrawIndexed(cmd, mesh.geo.count, 0, 0);
-        } else {
+        }
+        else
+        {
             bkpCmdDraw(cmd, mesh.geo.count, 0);
         }
     }
 
     for(uint32_t c = 0; c < node.childCount; c++)
+    {
         _drawNode(cmd, model, node.children[c], frame);
+    }
 }
 
 void Renderer::_drawTransMesh(VkCommandBuffer cmd, BkpModel* model,
-                               int nodeIdx, uint32_t subIdx, uint32_t frame) {
+                               int nodeIdx, uint32_t subIdx, uint32_t frame)
+{
     if(nodeIdx < 0 || nodeIdx >= (int)model->nodeCount) return;
     BkpNode& node = model->nodes[nodeIdx];
     uint32_t mi = (uint32_t)node.meshIdx + subIdx;
@@ -888,12 +924,15 @@ void Renderer::_drawTransMesh(VkCommandBuffer cmd, BkpModel* model,
 
     bool skinned = (mesh.isSkinned != 0) && (node.skinIdx >= 0);
     VkPipelineLayout layout;
-    if(skinned) {
+    if(skinned)
+    {
         bkpCmdBindPipeline(cmd, pbrPipelineLBSBlend.pipeline);
         layout = pbrPipelineLBSBlend.pipelineLayout.layout;
         bkpCmdBindDescriptorSets(cmd, layout, 0, 1, &frameDSet[frame]);
         bkpCmdBindDescriptorSets(cmd, layout, 2, 1, &jointDSet[frame]);
-    } else {
+    }
+    else
+    {
         bkpCmdBindPipeline(cmd, pbrPipelineBlend.pipeline);
         layout = pbrPipelineBlend.pipelineLayout.layout;
         bkpCmdBindDescriptorSets(cmd, layout, 0, 1, &frameDSet[frame]);
@@ -904,16 +943,20 @@ void Renderer::_drawTransMesh(VkCommandBuffer cmd, BkpModel* model,
     bkpCmdBindDescriptorSets(cmd, layout, 1, 1, &matGPU[matIdx].ds);
 
     MeshPC pc = {};
-    if(skinned) {
+    if(skinned)
+    {
         BkpMat4 ident = bkpIdentityMat4();
         memcpy(pc.model, &ident, sizeof(BkpMat4));
-    } else {
+    }
+    else
+    {
         memcpy(pc.model, &world, sizeof(BkpMat4));
     }
 
     BkpMaterial* mat = (mesh.materialIdx >= 0 && (uint32_t)mesh.materialIdx < model->materialCount)
                        ? &model->materials[mesh.materialIdx] : nullptr;
-    if(mat) {
+    if(mat)
+    {
         memcpy(pc.baseColor, mat->baseColor, 16);
         pc.metallic  = mat->metallic;
         pc.roughness = mat->roughness;
@@ -921,13 +964,16 @@ void Renderer::_drawTransMesh(VkCommandBuffer cmd, BkpModel* model,
                  | (mat->normalIdx            >= 0 ? 2 : 0)
                  | (mat->metallicRoughnessIdx >= 0 ? 4 : 0)
                  | (mat->emissiveIdx          >= 0 ? 8 : 0);
-    } else {
+    }
+    else
+    {
         pc.baseColor[0] = pc.baseColor[1] = pc.baseColor[2] = 0.72f;
         pc.baseColor[3] = 1.0f;
         pc.roughness    = 0.5f;
     }
     pc.renderMode = (int32_t)renderMode;
-    if(renderMode == RenderMode::Flat) {
+    if(renderMode == RenderMode::Flat)
+    {
         pc.baseColor[0] = flatColor[0];
         pc.baseColor[1] = flatColor[1];
         pc.baseColor[2] = flatColor[2];
@@ -946,18 +992,22 @@ void Renderer::_drawTransMesh(VkCommandBuffer cmd, BkpModel* model,
     bkpGetBufferOffset(mesh.geo.buffer, &off);
     bkpCmdBindVertexBuffer(cmd, 0, vkBuf, off);
 
-    if(mesh.geo.hasIndices) {
+    if(mesh.geo.hasIndices)
+    {
         VkDeviceSize idx = off + (VkDeviceSize)mesh.geo.indicesOffset;
         bkpCmdBindIndexBuffer(cmd, vkBuf, idx, mesh.geo.indexType);
         bkpCmdDrawIndexed(cmd, mesh.geo.count, 0, 0);
-    } else {
+    }
+    else
+    {
         bkpCmdDraw(cmd, mesh.geo.count, 0);
     }
 }
 
 /* ---- attachment info helpers ------------------------------------------ */
 
-VkRenderingAttachmentInfo Renderer::depthAttachment() const {
+VkRenderingAttachmentInfo Renderer::depthAttachment() const
+{
     VkRenderingAttachmentInfo a = {};
     a.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     a.imageView   = depth.imageViews[0];
@@ -968,20 +1018,24 @@ VkRenderingAttachmentInfo Renderer::depthAttachment() const {
     return a;
 }
 
-VkRenderingAttachmentInfo Renderer::buildColorAttachment(VkImageView swapView) const {
+VkRenderingAttachmentInfo Renderer::buildColorAttachment(VkImageView swapView) const
+{
     VkRenderingAttachmentInfo a = {};
     a.sType    = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     a.loadOp   = VK_ATTACHMENT_LOAD_OP_CLEAR;
     a.clearValue = {.color = {{0.12f, 0.12f, 0.14f, 1.0f}}};
 
-    if((msaaSamples != VK_SAMPLE_COUNT_1_BIT)) {
+    if((msaaSamples != VK_SAMPLE_COUNT_1_BIT))
+    {
         a.imageView          = _msaa.imageViews[0];
         a.imageLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         a.storeOp            = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         a.resolveMode        = VK_RESOLVE_MODE_AVERAGE_BIT;
         a.resolveImageView   = swapView;
         a.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    } else {
+    }
+    else
+    {
         a.imageView   = swapView;
         a.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         a.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
@@ -992,7 +1046,8 @@ VkRenderingAttachmentInfo Renderer::buildColorAttachment(VkImageView swapView) c
 /* ---- MSAA buffer ------------------------------------------------------ */
 
 
-void Renderer::_createMsaaBuffer(BkpGpuAdapter adp, uint32_t w, uint32_t h) {
+void Renderer::_createMsaaBuffer(BkpGpuAdapter adp, uint32_t w, uint32_t h)
+{
     _msaa = {};
     _msaa.imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     _msaa.imageInfo.imageType     = VK_IMAGE_TYPE_2D;
@@ -1014,12 +1069,14 @@ void Renderer::_createMsaaBuffer(BkpGpuAdapter adp, uint32_t w, uint32_t h) {
     bkpCreateImageResources(adp, &_msaa);
 }
 
-void Renderer::_destroyMsaaBuffer(BkpGpuAdapter adp) {
+void Renderer::_destroyMsaaBuffer(BkpGpuAdapter adp)
+{
     bkpDestroyImageResource(adp, &_msaa);
     _msaa = {};
 }
 
-void Renderer::addMsaaBarrier(VkCommandBuffer cmd) const {
+void Renderer::addMsaaBarrier(VkCommandBuffer cmd) const
+{
     if(!(msaaSamples != VK_SAMPLE_COUNT_1_BIT)) return;
     BkpImageBarrierInfo b = {
         .image     = _msaa.images[0],
@@ -1035,7 +1092,8 @@ void Renderer::addMsaaBarrier(VkCommandBuffer cmd) const {
 
 /* ---- pipeline teardown / MSAA rebuild --------------------------------- */
 
-void Renderer::_destroyPipelines(BkpGpuAdapter adp) {
+void Renderer::_destroyPipelines(BkpGpuAdapter adp)
+{
     auto destroyPL = [&](BkpPipelineGraphic& pl) {
         bkpDestroyGraphicPipeline(adp, &pl);
         bkpDestroyPipelineCache(adp, &pl.pipelineCache);
@@ -1072,7 +1130,8 @@ void Renderer::_destroyPipelines(BkpGpuAdapter adp) {
     bkpDestroyShaderModule(adp, &aabbVert);  bkpDestroyShaderModule(adp, &aabbFrag);
 }
 
-void Renderer::setMSAA(BkpGpuAdapter adp, VkSampleCountFlagBits samples) {
+void Renderer::setMSAA(BkpGpuAdapter adp, VkSampleCountFlagBits samples)
+{
     /* clamp to hardware max */
     while(samples > maxMsaaSamples && samples > VK_SAMPLE_COUNT_1_BIT)
         samples = (VkSampleCountFlagBits)(samples >> 1);
@@ -1095,13 +1154,19 @@ void Renderer::setMSAA(BkpGpuAdapter adp, VkSampleCountFlagBits samples) {
 
 /* ---- cleanup ---------------------------------------------------------- */
 
-void Renderer::cleanup(BkpGpuAdapter adp) {
+void Renderer::cleanup(BkpGpuAdapter adp)
+{
     for(auto& m : matGPU)
+    {
         if(m.ds != VK_NULL_HANDLE)
+        {
             bkpFreeDescriptorSet(adp, &descPool, m.ds);
+        }
+    }
     matGPU.clear();
 
-    for(uint32_t i = 0; i < MAX_FRAMES; i++) {
+    for(uint32_t i = 0; i < MAX_FRAMES; i++)
+    {
         if(frameDSet[i]  != VK_NULL_HANDLE) bkpFreeDescriptorSet(adp, &descPool, frameDSet[i]);
         if(shadowDSet[i] != VK_NULL_HANDLE) bkpFreeDescriptorSet(adp, &descPool, shadowDSet[i]);
         if(jointDSet[i]  != VK_NULL_HANDLE) bkpFreeDescriptorSet(adp, &descPool, jointDSet[i]);

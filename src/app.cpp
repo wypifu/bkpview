@@ -47,29 +47,34 @@ static void cb_mouseButton(GLFWwindow*, int btn, int action, int)
 }
 
 /*______________________________________________________________*/
-static void cb_mouseMove(GLFWwindow*, double x, double y) {
+static void cb_mouseMove(GLFWwindow*, double x, double y)
+{
     if(ImGui::GetIO().WantCaptureMouse) return;
     s_app->camera.onMouseMove((float)x, (float)y);
 }
 
 /*______________________________________________________________*/
-static void cb_scroll(GLFWwindow*, double, double dy) {
+static void cb_scroll(GLFWwindow*, double, double dy)
+{
     if(ImGui::GetIO().WantCaptureMouse) return;
     s_app->camera.onScroll((float)dy);
 }
 
 /*______________________________________________________________*/
-static void cb_drop(GLFWwindow*, int count, const char** paths) {
+static void cb_drop(GLFWwindow*, int count, const char** paths)
+{
     if(count > 0)
         snprintf(s_app->pendingPath, sizeof(s_app->pendingPath), "%s", paths[0]);
 }
 
 
 /*______________________________________________________________*/
-static void cb_key(GLFWwindow*, int key, int, int action, int) {
+static void cb_key(GLFWwindow*, int key, int, int action, int)
+{
     if(action != GLFW_PRESS) return;
     if(ImGui::GetIO().WantCaptureKeyboard) return;
-    switch(key) {
+    switch(key)
+    {
     case GLFW_KEY_P: s_app->renderer.renderMode = RenderMode::PBR;     break;
     case GLFW_KEY_F: s_app->renderer.renderMode = RenderMode::Flat;    break;
     case GLFW_KEY_N: s_app->renderer.renderMode = RenderMode::Normals; break;
@@ -79,7 +84,8 @@ static void cb_key(GLFWwindow*, int key, int, int action, int) {
             s_app->animState.playing = !s_app->animState.playing;
         break;
     case GLFW_KEY_R:
-        if(s_app->hasModel) {
+        if(s_app->hasModel)
+        {
             s_app->camera.azimuth   = 0.5f;
             s_app->camera.elevation = 0.4f;
             s_app->camera.focusAABB(s_app->renderer.aabbMin, s_app->renderer.aabbMax);
@@ -89,7 +95,8 @@ static void cb_key(GLFWwindow*, int key, int, int action, int) {
 }
 
 /* ---- init ------------------------------------------------------------- */
-void App::_applyIngaStyle() {
+void App::_applyIngaStyle()
+{
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec4* colors = style.Colors;
 
@@ -129,15 +136,16 @@ void App::_applyIngaStyle() {
     colors[ImGuiCol_ButtonActive]         = ImVec4(0.04f, 0.38f, 0.62f, 1.00f);
 }
 
-bool App::init(int w, int h) {
+bool App::init(int w, int h)
+{
     s_app = this;
 
     bkpWindowEnableResizable(1);
 
     BkpConfig cfg = bkpDefaultConfig();
-    cfg.vulkanContextInfo.winWidth         = w;
-    cfg.vulkanContextInfo.winHeight        = h;
-    cfg.vulkanContextInfo.maxFrameInFlight = MAX_FRAMES;
+    cfg.vulkanContextInfo.winWidth              = w;
+    cfg.vulkanContextInfo.winHeight             = h;
+    cfg.vulkanContextInfo.maxFrameInFlight      = MAX_FRAMES;
     cfg.appName = "BkpView 0.6";
     cfg.contextMemoryInfo.gfxPageMemorySize = 1024 * 1024 * 8; /* 8 MiB — default 4 MiB too small for 9 pipelines */
 
@@ -190,7 +198,8 @@ bool App::init(int w, int h) {
 
     float dpiScale = 1.0f;
     { float sx, sy; glfwGetWindowContentScale(win, &sx, &sy); dpiScale = sx; }
-    if(dpiScale > 1.01f) {
+    if(dpiScale > 1.01f)
+    {
         ImGui::GetIO().FontGlobalScale = dpiScale;
         ImGui::GetStyle().ScaleAllSizes(dpiScale);
     }
@@ -226,7 +235,8 @@ bool App::init(int w, int h) {
 
 /* ---- TRS rebuild ------------------------------------------------------ */
 
-void App::_rebuildTransform() {
+void App::_rebuildTransform()
+{
     float rx = trsRot[0] * (3.14159265f / 180.f);
     float ry = trsRot[1] * (3.14159265f / 180.f);
     float rz = trsRot[2] * (3.14159265f / 180.f);
@@ -247,7 +257,8 @@ void App::_rebuildTransform() {
 
 /* ---- root transform (builtin animation) ------------------------------- */
 
-BkpMat4 App::_computeRootTransform() const {
+BkpMat4 App::_computeRootTransform() const
+{
     if(builtinAnim.mode == BuiltinAnimMode::Off)
         return modelBaseTransform;
 
@@ -258,90 +269,101 @@ BkpMat4 App::_computeRootTransform() const {
 
     BkpMat4 result = bkpIdentityMat4();
 
-    switch(builtinAnim.mode) {
-    case BuiltinAnimMode::Rotation:
-    case BuiltinAnimMode::Swing: {
-        float angle = (builtinAnim.mode == BuiltinAnimMode::Rotation)
-                      ? builtinAnim.phase
-                      : sinf(builtinAnim.phase) * (60.0f * 3.14159265f / 180.0f);
+    switch(builtinAnim.mode)
+    {
+      case BuiltinAnimMode::Rotation:
+      case BuiltinAnimMode::Swing:
+        {
+          float angle = (builtinAnim.mode == BuiltinAnimMode::Rotation)
+            ? builtinAnim.phase
+            : sinf(builtinAnim.phase) * (60.0f * 3.14159265f / 180.0f);
 
-        float c = cosf(angle), s = sinf(angle);
+          float c = cosf(angle), s = sinf(angle);
 
-        /* T(pivot) * Ry(angle) * T(-pivot) */
-        BkpMat4 ry;
-        ry.mLine0 = bkpVec4( c,    0.0f, -s,    0.0f);
-        ry.mLine1 = bkpVec4( 0.0f, 1.0f,  0.0f, 0.0f);
-        ry.mLine2 = bkpVec4( s,    0.0f,  c,    0.0f);
-        ry.mLine3 = bkpVec4( 0.0f, 0.0f,  0.0f, 1.0f);
+          /* T(pivot) * Ry(angle) * T(-pivot) */
+          BkpMat4 ry;
+          ry.mLine0 = bkpVec4( c,    0.0f, -s,    0.0f);
+          ry.mLine1 = bkpVec4( 0.0f, 1.0f,  0.0f, 0.0f);
+          ry.mLine2 = bkpVec4( s,    0.0f,  c,    0.0f);
+          ry.mLine3 = bkpVec4( 0.0f, 0.0f,  0.0f, 1.0f);
 
-        /* translate pivot to origin, rotate, translate back */
-        BkpMat4 tNeg = bkpIdentityMat4();
-        tNeg.mLine3  = bkpVec4(-cx, 0.0f, -cz, 1.0f);
-        BkpMat4 tPos = bkpIdentityMat4();
-        tPos.mLine3  = bkpVec4( cx, 0.0f,  cz, 1.0f);
+          /* translate pivot to origin, rotate, translate back */
+          BkpMat4 tNeg = bkpIdentityMat4();
+          tNeg.mLine3  = bkpVec4(-cx, 0.0f, -cz, 1.0f);
+          BkpMat4 tPos = bkpIdentityMat4();
+          tPos.mLine3  = bkpVec4( cx, 0.0f,  cz, 1.0f);
 
-        BkpMat4 tmp  = bkpMat4DotMat4(&ry,   &tNeg);
-        result       = bkpMat4DotMat4(&tPos, &tmp);
-        break;
-    }
-    case BuiltinAnimMode::Hover: {
-        float amp = modelH * 0.25f;
-        float dy  = (sinf(builtinAnim.phase) + 1.0f) * 0.5f * amp;
-        result.mLine3 = bkpVec4(0.0f, dy, 0.0f, 1.0f);
-        break;
-    }
-    default: break;
+          BkpMat4 tmp  = bkpMat4DotMat4(&ry,   &tNeg);
+          result       = bkpMat4DotMat4(&tPos, &tmp);
+          break;
+        }
+      case BuiltinAnimMode::Hover:
+        {
+          float amp = modelH * 0.25f;
+          float dy  = (sinf(builtinAnim.phase) + 1.0f) * 0.5f * amp;
+          result.mLine3 = bkpVec4(0.0f, dy, 0.0f, 1.0f);
+          break;
+        }
+      default: break;
     }
     return bkpMat4DotMat4(&result, &modelBaseTransform);
 }
 
 /* ---- main loop -------------------------------------------------------- */
 
-void App::run() {
-    while(!bkpWindowIsClosed(ctx.vulkanContext.win)) {
-        bkpUpdateInputs(ctx.vulkanContext.win);
+void App::run()
+{
+  while(!bkpWindowIsClosed(ctx.vulkanContext.win))
+  {
+    bkpUpdateInputs(ctx.vulkanContext.win);
 
-        double now = glfwGetTime();
-        float  dt  = (float)(now - _prevTime);
-        _prevTime  = now;
-        if(dt > 0.1f) dt = 0.1f;  /* clamp on first frame / lag spike */
+    double now = glfwGetTime();
+    float  dt  = (float)(now - _prevTime);
+    _prevTime  = now;
+    if(dt > 0.1f) dt = 0.1f;  /* clamp on first frame / lag spike */
 
-        if(pendingMsaaChange) {
-            _applyMsaaChange();
-            pendingMsaaChange = false;
-        }
-
-        if(pendingPath[0]) {
-            _loadFile(pendingPath);
-            pendingPath[0] = '\0';
-        }
-
-        if(bkpWindowGetFrameBufferResized())
-            _handleResize();
-
-        /* skip draw when minimized */
-        int fw, fh;
-        glfwGetFramebufferSize(bkpGetWindow(), &fw, &fh);
-        if(fw == 0 || fh == 0) continue;
-
-        /* builtin animation */
-        if(hasModel && builtinAnim.mode != BuiltinAnimMode::Off)
-            builtinAnim.phase += (3.14159265f * 0.5f) * builtinAnim.speed * dt;
-
-        /* glTF animation */
-        if(hasModel && animState.playing && animState.clipIdx >= 0) {
-            animator.speed   = animState.speed;
-            animator.loop    = animState.loop;
-            animator.playing = animState.playing;
-            animator.update(dt);
-        }
-
-        _drawFrame();
+    if(pendingMsaaChange)
+    {
+      _applyMsaaChange();
+      pendingMsaaChange = false;
     }
-    bkpWaitDevice(adp);
+
+    if(pendingPath[0])
+    {
+      _loadFile(pendingPath);
+      pendingPath[0] = '\0';
+    }
+
+    if(bkpWindowGetFrameBufferResized())
+      _handleResize();
+
+    /* skip draw when minimized */
+    int fw, fh;
+    glfwGetFramebufferSize(bkpGetWindow(), &fw, &fh);
+    if(fw == 0 || fh == 0) continue;
+
+    /* builtin animation */
+    if(hasModel && builtinAnim.mode != BuiltinAnimMode::Off)
+    {
+      builtinAnim.phase += (3.14159265f * 0.5f) * builtinAnim.speed * dt;
+    }
+
+    /* glTF animation */
+    if(hasModel && animState.playing && animState.clipIdx >= 0)
+    {
+      animator.speed   = animState.speed;
+      animator.loop    = animState.loop;
+      animator.playing = animState.playing;
+      animator.update(dt);
+    }
+
+    _drawFrame();
+  }
+  bkpWaitDevice(adp);
 }
 
-void App::_handleResize() {
+void App::_handleResize()
+{
     bkpWindowResetFramebufferResized();
     bkpWaitDevice(adp);
 
@@ -362,10 +384,12 @@ void App::_handleResize() {
     ImGui_ImplVulkan_SetMinImageCount(MAX_FRAMES);
 }
 
-void App::_loadFile(const char* path) {
+void App::_loadFile(const char* path)
+{
     bkpWaitDevice(adp);
 
-    if(hasModel) {
+    if(hasModel)
+    {
         renderer.unloadModel(adp, &model);
         hasModel = false;
         animState = AnimState{};
@@ -384,11 +408,14 @@ void App::_loadFile(const char* path) {
             size_t needed   = fileSize * 8;
             if(needed > _generalGroupPageSize)
             {
-                if(!_loaderGroupSet) {
+                if(!_loaderGroupSet)
+                {
                     BkpAllocationGroupInfo gi = {"LargeFile", needed};
                     _loaderGroupId  = bkpAddAllocatorGroup(&gi);
                     _loaderGroupSet = true;
-                } else if(bkpGetAllocGroupPageSize(_loaderGroupId) < needed) {
+                }
+                else if(bkpGetAllocGroupPageSize(_loaderGroupId) < needed)
+                {
                     bkpResizeAllocGroup(_loaderGroupId, needed);
                 }
                 scratchGroup = _loaderGroupId;
@@ -396,10 +423,16 @@ void App::_loadFile(const char* path) {
         }
     }
 
-    if(bkpLoadModel(adp, path, &model, scratchGroup)) {
+    fprintf(stdout, "Loading %s ...\n", path);
+    fflush(stdout);
+
+    if(bkpLoadModel(adp, path, &model, scratchGroup))
+    {
         hasModel = true;
         modelBaseTransform = bkpIdentityMat4();
+        fprintf(stdout, "bkpLoadModel OK — entering renderer.loadModel\n"); fflush(stdout);
         renderer.loadModel(adp, &model);
+        fprintf(stdout, "renderer.loadModel done\n"); fflush(stdout);
         snprintf(currentModelPath, sizeof(currentModelPath), "%s", path);
         _addRecentFile(path);
 
@@ -421,19 +454,23 @@ void App::_loadFile(const char* path) {
         trsRot[0]   = 0.f; trsRot[1]   = 0.f;        trsRot[2]   = 0.f;
         trsScale[0] = 1.f; trsScale[1] = 1.f;         trsScale[2] = 1.f;
         _rebuildTransform();
-        if(localMinY != 0.0f) {
+        if(localMinY != 0.0f)
+        {
             renderer.aabbMin.y -= localMinY;
             renderer.aabbMax.y -= localMinY;
         }
         camera.focusAABB(renderer.aabbMin, renderer.aabbMax);
 
         /* auto-play first animation if available */
-        if(model.animationCount > 0) {
+        if(model.animationCount > 0)
+        {
             animState.clipIdx = 0;
             animState.playing = true;
             animator.setClip(&model, 0);
         }
-    } else {
+    }
+    else
+    {
         fprintf(stderr, "Failed to load: %s\n", path);
         const char* slash = path;
         for(const char* p = path; *p; p++)
@@ -442,12 +479,15 @@ void App::_loadFile(const char* path) {
     }
 
     if(_loaderGroupSet)
+    {
         bkpClearAllocGroup(_loaderGroupId);
+    }
 }
 
 /* ---- draw frame ------------------------------------------------------- */
 
-void App::_drawFrame() {
+void App::_drawFrame()
+{
     bkpPrepareFrame(adp);
 
     uint32_t    frame    = adp->frameInfo.currentFrame;
@@ -462,8 +502,7 @@ void App::_drawFrame() {
     BkpMat4 rootTransform = _computeRootTransform();
 
     /* evaluate glTF animation (always called — also applies rootTransform for static models) */
-    if(hasModel)
-        animator.evaluate(&model, rootTransform);
+    if(hasModel) animator.evaluate(&model, rootTransform);
 
     bkpBeginCommandBuffer(&cmds, frame, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
@@ -564,7 +603,8 @@ void App::_drawFrame() {
     bkpSubmitFrameBasic(adp, &cmds);
     bkpPresentFrame(adp);
 
-    if(pendingScreenshot) {
+    if(pendingScreenshot)
+    {
         pendingScreenshot = false;
         bkpWaitDevice(adp);
 
@@ -580,12 +620,14 @@ void App::_drawFrame() {
             snprintf(dir, sizeof(dir), "%s/Pictures", home ? home : ".");
             bkp_mkdir(dir);
         }
-        if(currentModelPath[0]) {
+        if(currentModelPath[0])
+        {
             snprintf(dir, sizeof(dir), "%s", currentModelPath);
             char* last = dir;
             for(char* p = dir; *p; p++)
                 if(*p == '/' || *p == '\\') last = p;
-            if(last != dir) {
+            if(last != dir)
+            {
                 snprintf(base, sizeof(base), "%s", last + 1);
                 /* strip extension from base */
                 char* dot = strrchr(base, '.');
@@ -594,7 +636,7 @@ void App::_drawFrame() {
             }
         }
 
-        char path[640];
+        char path[1024];
         time_t t = time(nullptr);
         struct tm* lt = localtime(&t);
         snprintf(path, sizeof(path), "%s/%s_%04d%02d%02d_%02d%02d%02d.png",
@@ -610,7 +652,8 @@ void App::_drawFrame() {
 static const char* kSpeedLabels[] = {"x0.25","x0.5","x0.75","x1","x1.25","x1.5","x1.75","x2"};
 static const float kSpeedValues[] = {0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
 
-static int speedIndex(float v) {
+static int speedIndex(float v)
+{
     int best = 3;
     float diff = 1e9f;
     for(int i = 0; i < 8; i++) {
@@ -620,7 +663,8 @@ static int speedIndex(float v) {
     return best;
 }
 
-void App::_buildUI() {
+void App::_buildUI()
+{
     ImGuiIO& io  = ImGui::GetIO();
     float scale  = io.FontGlobalScale;
 
@@ -633,7 +677,8 @@ void App::_buildUI() {
     const float dispH   = io.DisplaySize.y;
 
     /* ---- splash ---- */
-    if(!hasModel && splashDS != VK_NULL_HANDLE) {
+    if(!hasModel && splashDS != VK_NULL_HANDLE)
+    {
         constexpr float IMG_W = 1408.f, IMG_H = 768.f, ASPECT = IMG_W / IMG_H;
         float vpLeft = panelVisible ? panelW + togW : togW;
         float vpW = io.DisplaySize.x - vpLeft, vpH = dispH;
@@ -646,14 +691,16 @@ void App::_buildUI() {
     }
 
     /* ---- overlay ---- */
-    if(showOverlay) {
+    if(showOverlay)
+    {
         ImGui::SetNextWindowPos({io.DisplaySize.x - 10.f, 10.f}, ImGuiCond_Always, {1.f, 0.f});
         ImGui::SetNextWindowBgAlpha(0.55f);
         ImGui::Begin("##overlay", nullptr,
             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
             ImGuiWindowFlags_NoInputs);
         ImGui::Text("%.0f fps", io.Framerate);
-        if(hasModel) {
+        if(hasModel)
+        {
             uint32_t tris = 0;
             for(uint32_t i = 0; i < model.meshCount; i++)
                 tris += model.meshes[i].geo.count / 3;
@@ -664,7 +711,8 @@ void App::_buildUI() {
             if(model.skinCount)      ImGui::Text("%u skins", model.skinCount);
 
             bool hasTRS = false;
-            for(uint32_t i = 0; i < model.nodeCount && !hasTRS; i++) {
+            for(uint32_t i = 0; i < model.nodeCount && !hasTRS; i++)
+            {
                 const BkpNode& n = model.nodes[i];
                 hasTRS = n.translation[0] || n.translation[1] || n.translation[2]
                       || n.rotation[0]    || n.rotation[1]    || n.rotation[2]
@@ -674,7 +722,8 @@ void App::_buildUI() {
 
             bool hasAlbedo = false, hasNormal = false, hasRoughMetal = false;
             bool hasAO = false, hasEmissive = false;
-            for(uint32_t i = 0; i < model.materialCount; i++) {
+            for(uint32_t i = 0; i < model.materialCount; i++)
+            {
                 const BkpMaterial& m = model.materials[i];
                 if(m.albedoIdx            >= 0) hasAlbedo     = true;
                 if(m.normalIdx            >= 0) hasNormal     = true;
@@ -701,396 +750,405 @@ void App::_buildUI() {
     };
     static constexpr int NUM_TABS = 3;
 
-    static float sPanelH = 300.f; /* updated each frame for toggle centering */
 
-    if(panelVisible) {
-        constexpr ImGuiWindowFlags kFlags =
-            ImGuiWindowFlags_NoTitleBar       | ImGuiWindowFlags_NoResize          |
-            ImGuiWindowFlags_NoMove           | ImGuiWindowFlags_NoScrollbar       |
-            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBringToFrontOnFocus;
+    if(panelVisible)
+    {
+      constexpr ImGuiWindowFlags kFlags =
+        ImGuiWindowFlags_NoTitleBar       | ImGuiWindowFlags_NoResize          |
+        ImGuiWindowFlags_NoMove           | ImGuiWindowFlags_NoScrollbar       |
+        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-        const float margin = 10.f * scale;
-        ImGui::SetNextWindowPos({margin, dispH * 0.5f}, ImGuiCond_Always, {0.f, 0.5f});
-        ImGui::SetNextWindowSizeConstraints({panelW, 60.f}, {panelW, dispH - 2.f * margin});
-        ImGui::Begin("##panel", nullptr, kFlags);
+      const float margin = 10.f * scale;
+      ImGui::SetNextWindowPos({margin, dispH * 0.5f}, ImGuiCond_Always, {0.f, 0.5f});
+      ImGui::SetNextWindowSizeConstraints({panelW, 60.f}, {panelW, dispH - 2.f * margin});
+      ImGui::Begin("##panel", nullptr, kFlags);
 
-        ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.06f, 0.22f, 0.38f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.08f, 0.35f, 0.58f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0.05f, 0.42f, 0.68f, 1.0f));
+      ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.06f, 0.22f, 0.38f, 1.0f));
+      ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.08f, 0.35f, 0.58f, 1.0f));
+      ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0.05f, 0.42f, 0.68f, 1.0f));
 
-        /* --- icon tab column (group) --- */
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,  ImVec2(2.f * scale, 4.f * scale));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.f * scale, 4.f * scale));
-        ImGui::BeginGroup();
-        for(int i = 0; i < NUM_TABS; i++) {
-            bool sel = (activeTab == i);
-            ImGui::PushStyleColor(ImGuiCol_Button,
-                sel ? ImVec4(0.05f, 0.42f, 0.68f, 1.0f)
-                    : ImVec4(0.09f, 0.11f, 0.15f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.08f, 0.35f, 0.58f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.04f, 0.48f, 0.76f, 1.0f));
-            char lbl[32]; snprintf(lbl, sizeof(lbl), "%s##t%d", kTabs[i].icon, i);
-            if(ImGui::Button(lbl, {tabW - 4.f * scale, tabW})) activeTab = i;
-            ImGui::PopStyleColor(3);
-            if(ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
-                ImGui::SetTooltip("%s", kTabs[i].tip);
-        }
-        ImGui::EndGroup();
-        ImGui::PopStyleVar(2);
+      /* --- icon tab column (group) --- */
+      ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,  ImVec2(2.f * scale, 4.f * scale));
+      ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.f * scale, 4.f * scale));
+      ImGui::BeginGroup();
+      for(int i = 0; i < NUM_TABS; i++) {
+        bool sel = (activeTab == i);
+        ImGui::PushStyleColor(ImGuiCol_Button,
+            sel ? ImVec4(0.05f, 0.42f, 0.68f, 1.0f)
+            : ImVec4(0.09f, 0.11f, 0.15f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.08f, 0.35f, 0.58f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.04f, 0.48f, 0.76f, 1.0f));
+        char lbl[32]; snprintf(lbl, sizeof(lbl), "%s##t%d", kTabs[i].icon, i);
+        if(ImGui::Button(lbl, {tabW - 4.f * scale, tabW})) activeTab = i;
+        ImGui::PopStyleColor(3);
+        if(ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+          ImGui::SetTooltip("%s", kTabs[i].tip);
+      }
+      ImGui::EndGroup();
+      ImGui::PopStyleVar(2);
 
-        ImGui::SameLine(0.f, 0.f);
+      ImGui::SameLine(0.f, 0.f);
 
-        /* --- content (group) --- */
-        ImGui::BeginGroup();
+      /* --- content (group) --- */
+      ImGui::BeginGroup();
 
-        switch(activeTab) {
+      switch(activeTab) {
 
         /* ========== FILE ========== */
         case 0:
-            ImGui::Spacing();
-            if(ImGui::CollapsingHeader("File", ImGuiTreeNodeFlags_DefaultOpen)) {
-                if(ImGui::Button("Open...", {-1.f, 0.f})) {
-                    const char* path = openFileDialog("Open 3D Model");
-                    if(path) snprintf(pendingPath, sizeof(pendingPath), "%s", path);
-                }
-                ImGui::TextDisabled("or drop file here");
-                if(!recentFiles.empty()) {
-                    ImGui::SetNextItemWidth(-1.f);
-                    if(ImGui::BeginCombo("##recent", "Recent...")) {
-                        for(auto& p : recentFiles) {
-                            const char* name = p.c_str();
-                            for(const char* q = p.c_str(); *q; ++q)
-                                if(*q == '/' || *q == '\\') name = q + 1;
-                            if(ImGui::Selectable(name))
-                                snprintf(pendingPath, sizeof(pendingPath), "%s", p.c_str());
-                            if(ImGui::IsItemHovered())
-                                ImGui::SetTooltip("%s", p.c_str());
-                        }
-                        ImGui::EndCombo();
-                    }
-                }
+          ImGui::Spacing();
+          if(ImGui::CollapsingHeader("File", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if(ImGui::Button("Open...", {-1.f, 0.f})) {
+              const char* path = openFileDialog("Open 3D Model");
+              if(path) snprintf(pendingPath, sizeof(pendingPath), "%s", path);
             }
-            break;
+            ImGui::TextDisabled("or drop file here");
+            if(!recentFiles.empty()) {
+              ImGui::SetNextItemWidth(-1.f);
+              if(ImGui::BeginCombo("##recent", "Recent...")) {
+                for(auto& p : recentFiles) {
+                  const char* name = p.c_str();
+                  for(const char* q = p.c_str(); *q; ++q)
+                    if(*q == '/' || *q == '\\') name = q + 1;
+                  ImGui::PushID(p.c_str());
+                  if(ImGui::Selectable(name))
+                    snprintf(pendingPath, sizeof(pendingPath), "%s", p.c_str());
+                  if(ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", p.c_str());
+                  ImGui::PopID();
+                }
+                ImGui::EndCombo();
+              }
+            }
+          }
+          break;
 
-        /* ========== SCENE ========== */
+          /* ========== SCENE ========== */
         case 1:
-            ImGui::Spacing();
-            if(ImGui::CollapsingHeader("Render", ImGuiTreeNodeFlags_DefaultOpen)) {
-                int mode = (int)renderer.renderMode;
-                ImGui::RadioButton("PBR",     &mode, 0); ImGui::SameLine();
-                ImGui::RadioButton("Flat",    &mode, 1); ImGui::SameLine();
-                ImGui::RadioButton("Normals", &mode, 2);
-                renderer.renderMode = (RenderMode)mode;
-                if(renderer.renderMode == RenderMode::Flat)
-                    ImGui::ColorEdit3("Color##flat", renderer.flatColor);
-                ImGui::Checkbox("Grid",  &renderer.showGrid);
-                ImGui::SameLine();
-                ImGui::Checkbox("Stats", &showOverlay);
-                ImGui::Checkbox("Scene AABB", &renderer.showSceneAabb);
-                ImGui::SameLine();
-                ImGui::Checkbox("Nodes AABB", &renderer.showMeshAabb);
-                {
-                    static const VkSampleCountFlagBits kCounts[] = {
-                        VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
-                        VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT, VK_SAMPLE_COUNT_16_BIT
-                    };
-                    static const char* kMsaaLabels[] = {"Off", "2x", "4x", "8x", "16x"};
-                    int maxIdx = 0;
-                    for(int i = 1; i < 5; i++)
-                        if(kCounts[i] <= renderer.maxMsaaSamples) maxIdx = i;
-                    int curIdx = 0;
-                    for(int i = 0; i <= maxIdx; i++)
-                        if(renderer.msaaSamples == kCounts[i]) { curIdx = i; break; }
-                    ImGui::SetNextItemWidth(80.f * scale);
-                    if(ImGui::BeginCombo("MSAA", kMsaaLabels[curIdx])) {
-                        for(int i = 0; i <= maxIdx; i++) {
-                            bool sel = (curIdx == i);
-                            if(ImGui::Selectable(kMsaaLabels[i], sel)) {
-                                VkSampleCountFlagBits v = kCounts[i];
-                                if(i == 0) v = VK_SAMPLE_COUNT_1_BIT;
-                                else if(v == VK_SAMPLE_COUNT_1_BIT)
-                                    v = defaultMsaa(renderer.maxMsaaSamples);
-                                pendingMsaaValue  = v;
-                                pendingMsaaChange = true;
-                            }
-                            if(sel) ImGui::SetItemDefaultFocus();
-                        }
-                        ImGui::EndCombo();
-                    }
+          ImGui::Spacing();
+          if(ImGui::CollapsingHeader("Render", ImGuiTreeNodeFlags_DefaultOpen)) {
+            int mode = (int)renderer.renderMode;
+            ImGui::RadioButton("PBR",     &mode, 0); ImGui::SameLine();
+            ImGui::RadioButton("Flat",    &mode, 1); ImGui::SameLine();
+            ImGui::RadioButton("Normals", &mode, 2);
+            renderer.renderMode = (RenderMode)mode;
+            if(renderer.renderMode == RenderMode::Flat)
+              ImGui::ColorEdit3("Color##flat", renderer.flatColor);
+            ImGui::Checkbox("Grid",  &renderer.showGrid);
+            ImGui::SameLine();
+            ImGui::Checkbox("Stats", &showOverlay);
+            ImGui::Checkbox("Scene AABB", &renderer.showSceneAabb);
+            ImGui::SameLine();
+            ImGui::Checkbox("Nodes AABB", &renderer.showMeshAabb);
+            {
+              static const VkSampleCountFlagBits kCounts[] = {
+                VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
+                VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT, VK_SAMPLE_COUNT_16_BIT
+              };
+              static const char* kMsaaLabels[] = {"Off", "2x", "4x", "8x", "16x"};
+              int maxIdx = 0;
+              for(int i = 1; i < 5; i++)
+                if(kCounts[i] <= renderer.maxMsaaSamples) maxIdx = i;
+              int curIdx = 0;
+              for(int i = 0; i <= maxIdx; i++)
+                if(renderer.msaaSamples == kCounts[i]) { curIdx = i; break; }
+              ImGui::SetNextItemWidth(80.f * scale);
+              if(ImGui::BeginCombo("MSAA", kMsaaLabels[curIdx])) {
+                for(int i = 0; i <= maxIdx; i++) {
+                  bool sel = (curIdx == i);
+                  if(ImGui::Selectable(kMsaaLabels[i], sel)) {
+                    VkSampleCountFlagBits v = kCounts[i];
+                    if(i == 0) v = VK_SAMPLE_COUNT_1_BIT;
+                    else if(v == VK_SAMPLE_COUNT_1_BIT)
+                      v = defaultMsaa(renderer.maxMsaaSamples);
+                    pendingMsaaValue  = v;
+                    pendingMsaaChange = true;
+                  }
+                  if(sel) ImGui::SetItemDefaultFocus();
                 }
+                ImGui::EndCombo();
+              }
             }
-            ImGui::Spacing();
-            if(ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::SliderFloat("FOV", &camera.fovDeg, 10.f, 120.f);
-                if(ImGui::Button("Reset view") && hasModel) {
-                    camera.azimuth   = 0.5f;
-                    camera.elevation = 0.4f;
-                    camera.focusAABB(renderer.aabbMin, renderer.aabbMax);
-                }
+          }
+          ImGui::Spacing();
+          if(ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::SliderFloat("FOV", &camera.fovDeg, 10.f, 120.f);
+            if(ImGui::Button("Reset view") && hasModel) {
+              camera.azimuth   = 0.5f;
+              camera.elevation = 0.4f;
+              camera.focusAABB(renderer.aabbMin, renderer.aabbMax);
             }
-            ImGui::Spacing();
-            if(hasModel && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
-                float fw = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 2.f) / 3.f;
+          }
+          ImGui::Spacing();
+          if(hasModel && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
+            float fw = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 2.f) / 3.f;
 
-                auto refreshWorldAABB = [&]() {
-                    float mnX=model.aabbMin[0], mnY=model.aabbMin[1], mnZ=model.aabbMin[2];
-                    float mxX=model.aabbMax[0], mxY=model.aabbMax[1], mxZ=model.aabbMax[2];
-                    float cx8[8]={mnX,mxX,mnX,mxX,mnX,mxX,mnX,mxX};
-                    float cy8[8]={mnY,mnY,mxY,mxY,mnY,mnY,mxY,mxY};
-                    float cz8[8]={mnZ,mnZ,mnZ,mnZ,mxZ,mxZ,mxZ,mxZ};
-                    float wmn[3]={1e30f,1e30f,1e30f}, wmx[3]={-1e30f,-1e30f,-1e30f};
-                    for(int k=0;k<8;++k){
-                        BkpVec4 v=bkpVec4(cx8[k],cy8[k],cz8[k],1.0f);
-                        BkpVec4 w=bkpMat4DotVec4(&modelBaseTransform,&v);
-                        if(w.x<wmn[0])wmn[0]=w.x; if(w.x>wmx[0])wmx[0]=w.x;
-                        if(w.y<wmn[1])wmn[1]=w.y; if(w.y>wmx[1])wmx[1]=w.y;
-                        if(w.z<wmn[2])wmn[2]=w.z; if(w.z>wmx[2])wmx[2]=w.z;
-                    }
-                    renderer.aabbMin=bkpVec3(wmn[0],wmn[1],wmn[2]);
-                    renderer.aabbMax=bkpVec3(wmx[0],wmx[1],wmx[2]);
-                };
+            auto refreshWorldAABB = [&]() {
+              float mnX=model.aabbMin[0], mnY=model.aabbMin[1], mnZ=model.aabbMin[2];
+              float mxX=model.aabbMax[0], mxY=model.aabbMax[1], mxZ=model.aabbMax[2];
+              float cx8[8]={mnX,mxX,mnX,mxX,mnX,mxX,mnX,mxX};
+              float cy8[8]={mnY,mnY,mxY,mxY,mnY,mnY,mxY,mxY};
+              float cz8[8]={mnZ,mnZ,mnZ,mnZ,mxZ,mxZ,mxZ,mxZ};
+              float wmn[3]={1e30f,1e30f,1e30f}, wmx[3]={-1e30f,-1e30f,-1e30f};
+              for(int k=0;k<8;++k)
+              {
+                BkpVec4 v=bkpVec4(cx8[k],cy8[k],cz8[k],1.0f);
+                BkpVec4 w=bkpMat4DotVec4(&modelBaseTransform,&v);
+                if(w.x<wmn[0])wmn[0]=w.x;
+                if(w.x>wmx[0])wmx[0]=w.x;
+                if(w.y<wmn[1])wmn[1]=w.y;
+                if(w.y>wmx[1])wmx[1]=w.y;
+                if(w.z<wmn[2])wmn[2]=w.z;
+                if(w.z>wmx[2])wmx[2]=w.z;
+              }
+              renderer.aabbMin=bkpVec3(wmn[0],wmn[1],wmn[2]);
+              renderer.aabbMax=bkpVec3(wmx[0],wmx[1],wmx[2]);
+            };
 
-                auto axisLabel = [&](const char* label, ImVec4 color) {
-                    ImGui::TextColored(color, "%s", label);
-                    ImGui::SameLine(0.f, 2.f * scale);
-                };
+            auto axisLabel = [&](const char* label, ImVec4 color) {
+              ImGui::TextColored(color, "%s", label);
+              ImGui::SameLine(0.f, 2.f * scale);
+            };
 
-                ImGui::TextDisabled("Position");
-                axisLabel("X", {0.9f,0.2f,0.2f,1.f});
-                ImGui::SetNextItemWidth(fw);
-                bool tx = ImGui::DragFloat("##px", &trsTrans[0], 0.01f, 0.f, 0.f, "%.3f");
-                ImGui::SameLine(0.f, 4.f * scale);
-                axisLabel("Y", {0.3f,0.8f,0.3f,1.f});
-                ImGui::SetNextItemWidth(fw);
-                bool ty = ImGui::DragFloat("##py", &trsTrans[1], 0.01f, 0.f, 0.f, "%.3f");
-                ImGui::SameLine(0.f, 4.f * scale);
-                axisLabel("Z", {0.3f,0.5f,1.f,1.f});
-                ImGui::SetNextItemWidth(fw);
-                bool tz = ImGui::DragFloat("##pz", &trsTrans[2], 0.01f, 0.f, 0.f, "%.3f");
-                if(tx || ty || tz) _rebuildTransform();
+            ImGui::TextDisabled("Position");
+            axisLabel("X", {0.9f,0.2f,0.2f,1.f});
+            ImGui::SetNextItemWidth(fw);
+            bool tx = ImGui::DragFloat("##px", &trsTrans[0], 0.01f, 0.f, 0.f, "%.3f");
+            ImGui::SameLine(0.f, 4.f * scale);
+            axisLabel("Y", {0.3f,0.8f,0.3f,1.f});
+            ImGui::SetNextItemWidth(fw);
+            bool ty = ImGui::DragFloat("##py", &trsTrans[1], 0.01f, 0.f, 0.f, "%.3f");
+            ImGui::SameLine(0.f, 4.f * scale);
+            axisLabel("Z", {0.3f,0.5f,1.f,1.f});
+            ImGui::SetNextItemWidth(fw);
+            bool tz = ImGui::DragFloat("##pz", &trsTrans[2], 0.01f, 0.f, 0.f, "%.3f");
+            if(tx || ty || tz) _rebuildTransform();
 
-                ImGui::TextDisabled("Scale");
-                ImGui::SameLine();
-                ImGui::Checkbox("Uniform##scale", &uniformScale);
-                {
-                    axisLabel("X", {0.9f,0.2f,0.2f,1.f});
-                    ImGui::SetNextItemWidth(fw);
-                    bool sx = ImGui::DragFloat("##sx", &trsScale[0], 0.005f, 0.001f, 1000.f, "%.3f");
-                    ImGui::SameLine(0.f, 4.f * scale);
-                    axisLabel("Y", {0.3f,0.8f,0.3f,1.f});
-                    ImGui::SetNextItemWidth(fw);
-                    bool sy = ImGui::DragFloat("##sy", &trsScale[1], 0.005f, 0.001f, 1000.f, "%.3f");
-                    ImGui::SameLine(0.f, 4.f * scale);
-                    axisLabel("Z", {0.3f,0.5f,1.f,1.f});
-                    ImGui::SetNextItemWidth(fw);
-                    bool sz = ImGui::DragFloat("##sz", &trsScale[2], 0.005f, 0.001f, 1000.f, "%.3f");
-                    if(sx || sy || sz) {
-                        if(uniformScale) {
-                            if(sx)      { trsScale[1]=trsScale[2]=trsScale[0]; }
-                            else if(sy) { trsScale[0]=trsScale[2]=trsScale[1]; }
-                            else        { trsScale[0]=trsScale[1]=trsScale[2]; }
-                        }
-                        _rebuildTransform();
-                    }
+            ImGui::TextDisabled("Scale");
+            ImGui::SameLine();
+            ImGui::Checkbox("Uniform##scale", &uniformScale);
+            {
+              axisLabel("X", {0.9f,0.2f,0.2f,1.f});
+              ImGui::SetNextItemWidth(fw);
+              bool sx = ImGui::DragFloat("##sx", &trsScale[0], 0.005f, 0.001f, 1000.f, "%.3f");
+              ImGui::SameLine(0.f, 4.f * scale);
+              axisLabel("Y", {0.3f,0.8f,0.3f,1.f});
+              ImGui::SetNextItemWidth(fw);
+              bool sy = ImGui::DragFloat("##sy", &trsScale[1], 0.005f, 0.001f, 1000.f, "%.3f");
+              ImGui::SameLine(0.f, 4.f * scale);
+              axisLabel("Z", {0.3f,0.5f,1.f,1.f});
+              ImGui::SetNextItemWidth(fw);
+              bool sz = ImGui::DragFloat("##sz", &trsScale[2], 0.005f, 0.001f, 1000.f, "%.3f");
+              if(sx || sy || sz) {
+                if(uniformScale) {
+                  if(sx)      { trsScale[1]=trsScale[2]=trsScale[0]; }
+                  else if(sy) { trsScale[0]=trsScale[2]=trsScale[1]; }
+                  else        { trsScale[0]=trsScale[1]=trsScale[2]; }
                 }
-
-                ImGui::TextDisabled("Rotation");
-                axisLabel("X", {0.9f,0.2f,0.2f,1.f});
-                ImGui::SetNextItemWidth(fw);
-                bool rx = ImGui::DragFloat("##rx", &trsRot[0], 1.f, 0.f, 0.f, "%.1f\xc2\xb0");
-                ImGui::SameLine(0.f, 4.f * scale);
-                axisLabel("Y", {0.3f,0.8f,0.3f,1.f});
-                ImGui::SetNextItemWidth(fw);
-                bool ry = ImGui::DragFloat("##ry", &trsRot[1], 1.f, 0.f, 0.f, "%.1f\xc2\xb0");
-                ImGui::SameLine(0.f, 4.f * scale);
-                axisLabel("Z", {0.3f,0.5f,1.f,1.f});
-                ImGui::SetNextItemWidth(fw);
-                bool rz = ImGui::DragFloat("##rz", &trsRot[2], 1.f, 0.f, 0.f, "%.1f\xc2\xb0");
-                if(rx || ry || rz) _rebuildTransform();
-
-                if(ImGui::Button("Ground")) {
-                    float mnX=model.aabbMin[0], mnY=model.aabbMin[1], mnZ=model.aabbMin[2];
-                    float mxX=model.aabbMax[0], mxY=model.aabbMax[1], mxZ=model.aabbMax[2];
-                    float cx[8]={mnX,mxX,mnX,mxX,mnX,mxX,mnX,mxX};
-                    float cy[8]={mnY,mnY,mxY,mxY,mnY,mnY,mxY,mxY};
-                    float cz[8]={mnZ,mnZ,mnZ,mnZ,mxZ,mxZ,mxZ,mxZ};
-                    float worldMinY=1e30f;
-                    for(int k=0;k<8;++k){
-                        BkpVec4 v=bkpVec4(cx[k],cy[k],cz[k],1.0f);
-                        BkpVec4 w=bkpMat4DotVec4(&modelBaseTransform,&v);
-                        if(w.y<worldMinY) worldMinY=w.y;
-                    }
-                    trsTrans[1] -= worldMinY;
-                    _rebuildTransform();
-                    refreshWorldAABB();
-                    camera.focusAABB(renderer.aabbMin, renderer.aabbMax);
-                }
-                ImGui::SameLine();
-                if(ImGui::Button("Reset")) {
-                    trsTrans[0]=trsTrans[1]=trsTrans[2]=0.f;
-                    trsRot[0]=trsRot[1]=trsRot[2]=0.f;
-                    trsScale[0]=trsScale[1]=trsScale[2]=1.f;
-                    _rebuildTransform();
-                    refreshWorldAABB();
-                    camera.focusAABB(renderer.aabbMin, renderer.aabbMax);
-                }
+                _rebuildTransform();
+              }
             }
-            ImGui::Spacing();
-            if(ImGui::CollapsingHeader("Builtin Anim", ImGuiTreeNodeFlags_DefaultOpen)) {
-                int bm = (int)builtinAnim.mode;
-                ImGui::RadioButton("Off##ba",  &bm, 0); ImGui::SameLine();
-                ImGui::RadioButton("Rot##ba",  &bm, 1); ImGui::SameLine();
-                ImGui::RadioButton("Hover##ba",&bm, 2); ImGui::SameLine();
-                ImGui::RadioButton("Swing##ba",&bm, 3);
-                builtinAnim.mode = (BuiltinAnimMode)bm;
-                if(bm != 0) {
-                    int si = speedIndex(builtinAnim.speed);
-                    if(ImGui::SliderInt("Speed##ba", &si, 0, 7, kSpeedLabels[si]))
-                        builtinAnim.speed = kSpeedValues[si];
-                }
-            }
-            ImGui::Spacing();
-            if(hasModel && model.animationCount > 0 &&
-               ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
-                const char* curName = (animState.clipIdx >= 0 && (uint32_t)animState.clipIdx < model.animationCount)
-                                      ? model.animations[animState.clipIdx].name : "None";
-                if(ImGui::BeginCombo("Clip##ac", curName)) {
-                    for(uint32_t i = 0; i < model.animationCount; i++) {
-                        bool sel = ((uint32_t)animState.clipIdx == i);
-                        char dispName[128];
-                        if(model.animations[i].name[0])
-                            snprintf(dispName, sizeof(dispName), "%s", model.animations[i].name);
-                        else
-                            snprintf(dispName, sizeof(dispName), "Anim %u", i);
-                        char lbl2[160];
-                        snprintf(lbl2, sizeof(lbl2), "%s###clip%u", dispName, i);
-                        if(ImGui::Selectable(lbl2, sel)) {
-                            animState.clipIdx = (int)i;
-                            animator.setClip(&model, (int)i);
-                            animState.playing = true;
-                        }
-                        if(sel) ImGui::SetItemDefaultFocus();
-                    }
-                    ImGui::EndCombo();
-                }
-                if(animState.playing) {
-                    if(ImGui::Button("Pause##ac")) animState.playing = false;
-                } else {
-                    if(ImGui::Button("Play##ac"))  animState.playing = true;
-                }
-                ImGui::SameLine();
-                if(ImGui::Button("Restart##ac")) {
-                    animator.time = 0.0f;
-                    if(animState.clipIdx >= 0) animator.setClip(&model, animState.clipIdx);
-                    animState.playing = true;
-                }
-                ImGui::SameLine();
-                ImGui::Checkbox("Loop##ac", &animState.loop);
-                if(animState.clipIdx >= 0 && (uint32_t)animState.clipIdx < model.animationCount) {
-                    float dur = model.animations[animState.clipIdx].duration;
-                    if(dur > 0.0f) {
-                        float t = animator.time;
-                        if(ImGui::SliderFloat("Time##ac", &t, 0.0f, dur, "%.2fs")) {
-                            animator.time = t;
-                            animState.playing = false;
-                        }
-                    }
-                }
-                {
-                    int si = speedIndex(animState.speed);
-                    if(ImGui::SliderInt("Speed##ac", &si, 0, 7, kSpeedLabels[si]))
-                        animState.speed = kSpeedValues[si];
-                }
-            }
-            break;
 
-        /* ========== LIGHT ========== */
+            ImGui::TextDisabled("Rotation");
+            axisLabel("X", {0.9f,0.2f,0.2f,1.f});
+            ImGui::SetNextItemWidth(fw);
+            bool rx = ImGui::DragFloat("##rx", &trsRot[0], 1.f, 0.f, 0.f, "%.1f\xc2\xb0");
+            ImGui::SameLine(0.f, 4.f * scale);
+            axisLabel("Y", {0.3f,0.8f,0.3f,1.f});
+            ImGui::SetNextItemWidth(fw);
+            bool ry = ImGui::DragFloat("##ry", &trsRot[1], 1.f, 0.f, 0.f, "%.1f\xc2\xb0");
+            ImGui::SameLine(0.f, 4.f * scale);
+            axisLabel("Z", {0.3f,0.5f,1.f,1.f});
+            ImGui::SetNextItemWidth(fw);
+            bool rz = ImGui::DragFloat("##rz", &trsRot[2], 1.f, 0.f, 0.f, "%.1f\xc2\xb0");
+            if(rx || ry || rz) _rebuildTransform();
+
+            if(ImGui::Button("Ground")) {
+              float mnX=model.aabbMin[0], mnY=model.aabbMin[1], mnZ=model.aabbMin[2];
+              float mxX=model.aabbMax[0], mxY=model.aabbMax[1], mxZ=model.aabbMax[2];
+              float cx[8]={mnX,mxX,mnX,mxX,mnX,mxX,mnX,mxX};
+              float cy[8]={mnY,mnY,mxY,mxY,mnY,mnY,mxY,mxY};
+              float cz[8]={mnZ,mnZ,mnZ,mnZ,mxZ,mxZ,mxZ,mxZ};
+              float worldMinY=1e30f;
+              for(int k=0;k<8;++k){
+                BkpVec4 v=bkpVec4(cx[k],cy[k],cz[k],1.0f);
+                BkpVec4 w=bkpMat4DotVec4(&modelBaseTransform,&v);
+                if(w.y<worldMinY) worldMinY=w.y;
+              }
+              trsTrans[1] -= worldMinY;
+              _rebuildTransform();
+              refreshWorldAABB();
+              camera.focusAABB(renderer.aabbMin, renderer.aabbMax);
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("Reset")) {
+              trsTrans[0]=trsTrans[1]=trsTrans[2]=0.f;
+              trsRot[0]=trsRot[1]=trsRot[2]=0.f;
+              trsScale[0]=trsScale[1]=trsScale[2]=1.f;
+              _rebuildTransform();
+              refreshWorldAABB();
+              camera.focusAABB(renderer.aabbMin, renderer.aabbMax);
+            }
+          }
+          ImGui::Spacing();
+          if(ImGui::CollapsingHeader("Builtin Anim", ImGuiTreeNodeFlags_DefaultOpen)) {
+            int bm = (int)builtinAnim.mode;
+            ImGui::RadioButton("Off##ba",  &bm, 0); ImGui::SameLine();
+            ImGui::RadioButton("Rot##ba",  &bm, 1); ImGui::SameLine();
+            ImGui::RadioButton("Hover##ba",&bm, 2); ImGui::SameLine();
+            ImGui::RadioButton("Swing##ba",&bm, 3);
+            builtinAnim.mode = (BuiltinAnimMode)bm;
+            if(bm != 0) {
+              int si = speedIndex(builtinAnim.speed);
+              if(ImGui::SliderInt("Speed##ba", &si, 0, 7, kSpeedLabels[si]))
+                builtinAnim.speed = kSpeedValues[si];
+            }
+          }
+          ImGui::Spacing();
+          if(hasModel && model.animationCount > 0 &&
+              ImGui::CollapsingHeader("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
+            const char* curName = (animState.clipIdx >= 0 && (uint32_t)animState.clipIdx < model.animationCount)
+              ? model.animations[animState.clipIdx].name : "None";
+            if(ImGui::BeginCombo("Clip##ac", curName)) {
+              for(uint32_t i = 0; i < model.animationCount; i++) {
+                bool sel = ((uint32_t)animState.clipIdx == i);
+                char dispName[128];
+                if(model.animations[i].name[0])
+                  snprintf(dispName, sizeof(dispName), "%s", model.animations[i].name);
+                else
+                  snprintf(dispName, sizeof(dispName), "Anim %u", i);
+                char lbl2[160];
+                snprintf(lbl2, sizeof(lbl2), "%s###clip%u", dispName, i);
+                if(ImGui::Selectable(lbl2, sel)) {
+                  animState.clipIdx = (int)i;
+                  animator.setClip(&model, (int)i);
+                  animState.playing = true;
+                }
+                if(sel) ImGui::SetItemDefaultFocus();
+              }
+              ImGui::EndCombo();
+            }
+            if(animState.playing) {
+              if(ImGui::Button("Pause##ac")) animState.playing = false;
+            } else {
+              if(ImGui::Button("Play##ac"))  animState.playing = true;
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("Restart##ac")) {
+              animator.time = 0.0f;
+              if(animState.clipIdx >= 0) animator.setClip(&model, animState.clipIdx);
+              animState.playing = true;
+            }
+            ImGui::SameLine();
+            ImGui::Checkbox("Loop##ac", &animState.loop);
+            if(animState.clipIdx >= 0 && (uint32_t)animState.clipIdx < model.animationCount) {
+              float dur = model.animations[animState.clipIdx].duration;
+              if(dur > 0.0f) {
+                float t = animator.time;
+                if(ImGui::SliderFloat("Time##ac", &t, 0.0f, dur, "%.2fs")) {
+                  animator.time = t;
+                  animState.playing = false;
+                }
+              }
+            }
+            {
+              int si = speedIndex(animState.speed);
+              if(ImGui::SliderInt("Speed##ac", &si, 0, 7, kSpeedLabels[si]))
+                animState.speed = kSpeedValues[si];
+            }
+          }
+          break;
+
+          /* ========== LIGHT ========== */
         case 2:
-            ImGui::Spacing();
-            if(ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::SliderAngle("Azimuth##L",   &renderer.light.azimuth,   0.f, 360.f);
-                ImGui::SliderAngle("Elevation##L", &renderer.light.elevation, 0.f,  90.f);
-                ImGui::SliderFloat("Intensity",    &renderer.light.intensity, 0.f,  20.f);
-                ImGui::ColorEdit3 ("Color",         renderer.light.color);
+          ImGui::Spacing();
+          if(ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::SliderAngle("Azimuth##L",   &renderer.light.azimuth,   0.f, 360.f);
+            ImGui::SliderAngle("Elevation##L", &renderer.light.elevation, 0.f,  90.f);
+            ImGui::SliderFloat("Intensity",    &renderer.light.intensity, 0.f,  20.f);
+            ImGui::ColorEdit3 ("Color",         renderer.light.color);
+          }
+          ImGui::Spacing();
+          if(ImGui::CollapsingHeader("Plan & Shadow", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Plan##ps", &renderer.showPlan);
+            if(renderer.showPlan) {
+              ImGui::Indent();
+              int pm = renderer.planChecker ? 1 : 0;
+              ImGui::RadioButton("Solid##p",   &pm, 0); ImGui::SameLine();
+              ImGui::RadioButton("Checker##p", &pm, 1);
+              renderer.planChecker = (pm == 1);
+              if(!renderer.planChecker)
+                ImGui::ColorEdit3("Color##plan", renderer.planColor);
+              else
+                ImGui::SliderFloat("Scale##chk", &renderer.checkerScale, 0.1f, 5.0f);
+              ImGui::Unindent();
             }
-            ImGui::Spacing();
-            if(ImGui::CollapsingHeader("Plan & Shadow", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::Checkbox("Plan##ps", &renderer.showPlan);
-                if(renderer.showPlan) {
-                    ImGui::Indent();
-                    int pm = renderer.planChecker ? 1 : 0;
-                    ImGui::RadioButton("Solid##p",   &pm, 0); ImGui::SameLine();
-                    ImGui::RadioButton("Checker##p", &pm, 1);
-                    renderer.planChecker = (pm == 1);
-                    if(!renderer.planChecker)
-                        ImGui::ColorEdit3("Color##plan", renderer.planColor);
-                    else
-                        ImGui::SliderFloat("Scale##chk", &renderer.checkerScale, 0.1f, 5.0f);
-                    ImGui::Unindent();
-                }
-                ImGui::Checkbox("Shadow##ps", &renderer.showShadow);
-                if(renderer.showShadow)
-                    ImGui::Checkbox("  Shadow on model", &renderer.shadowOnModel);
-            }
-            break;
+            ImGui::Checkbox("Shadow##ps", &renderer.showShadow);
+            if(renderer.showShadow)
+              ImGui::Checkbox("  Shadow on model", &renderer.shadowOnModel);
+          }
+          break;
 
-        } /* switch(activeTab) */
+      } /* switch(activeTab) */
 
-        /* ---- persistent footer ---- */
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-        if(ImGui::Button("Screenshot", {-1.f, 0.f}))
-            pendingScreenshot = true;
-        if(ImGui::Button("? Shortcuts", {-1.f, 0.f}))
-            ImGui::OpenPopup("shortcuts_popup");
-        if(ImGui::BeginPopup("shortcuts_popup")) {
-            ImGui::SeparatorText("Keyboard shortcuts");
-            ImGui::TextUnformatted("P         PBR mode");
-            ImGui::TextUnformatted("F         Flat mode");
-            ImGui::TextUnformatted("N         Normals mode");
-            ImGui::TextUnformatted("G         Grid toggle");
-            ImGui::TextUnformatted("Space     Play / Pause animation");
-            ImGui::TextUnformatted("R         Reset camera");
-            ImGui::EndPopup();
-        }
-        if(ImGui::Button("Buy me a coffee", {-1.f, 0.f}))
-            openUrl("https://paypal.me/sabashka80");
-        ImGui::Spacing();
+      /* ---- persistent footer ---- */
+      ImGui::Spacing();
+      ImGui::Separator();
+      ImGui::Spacing();
+      if(ImGui::Button("Screenshot", {-1.f, 0.f}))
+        pendingScreenshot = true;
+      if(ImGui::Button("? Shortcuts", {-1.f, 0.f}))
+        ImGui::OpenPopup("shortcuts_popup");
+      if(ImGui::BeginPopup("shortcuts_popup")) {
+        ImGui::SeparatorText("Keyboard shortcuts");
+        ImGui::TextUnformatted("P         PBR mode");
+        ImGui::TextUnformatted("F         Flat mode");
+        ImGui::TextUnformatted("N         Normals mode");
+        ImGui::TextUnformatted("G         Grid toggle");
+        ImGui::TextUnformatted("Space     Play / Pause animation");
+        ImGui::TextUnformatted("R         Reset camera");
+        ImGui::EndPopup();
+      }
+      if(ImGui::Button("Buy me a coffee", {-1.f, 0.f}))
+      {
+        openUrl("https://paypal.me/sabashka80");
+      }
+      ImGui::Spacing();
 
-        ImGui::EndGroup(); /* content group */
+      ImGui::EndGroup(); /* content group */
 
-        sPanelH = ImGui::GetWindowSize().y;
-        ImGui::PopStyleColor(3);
-        ImGui::End(); /* ##panel */
+
+      ImGui::PopStyleColor(3);
+      ImGui::End(); /* ##panel */
     }
 
     /* ---- toggle tab ---- */
     {
-        const float margin = 10.f * scale;
-        float tx = panelVisible ? margin + panelW : 0.f;
-        float ty = dispH * 0.5f - togH * 0.5f;
-        ImGui::SetNextWindowPos({tx, ty}, ImGuiCond_Always);
-        ImGui::SetNextWindowSize({togW, togH}, ImGuiCond_Always);
-        ImGui::SetNextWindowBgAlpha(0.80f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1.f * scale, 1.f * scale));
-        ImGui::Begin("##tog", nullptr,
-            ImGuiWindowFlags_NoTitleBar  | ImGuiWindowFlags_NoResize    |
-            ImGuiWindowFlags_NoMove      | ImGuiWindowFlags_NoScrollbar |
-            ImGuiWindowFlags_NoBringToFrontOnFocus);
-        ImGui::PopStyleVar();
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.f, 1.f));
-        /* fa-chevron-left U+F053 / fa-chevron-right U+F054 */
-        const char* arrow = panelVisible ? "\xEF\x81\x93" : "\xEF\x81\x94";
-        if(ImGui::Button(arrow, {-1.f, -1.f}))
-            panelVisible = !panelVisible;
-        ImGui::PopStyleVar();
-        ImGui::End();
+      const float margin = 10.f * scale;
+      float tx = panelVisible ? margin + panelW : 0.f;
+      float ty = dispH * 0.5f - togH * 0.5f;
+      ImGui::SetNextWindowPos({tx, ty}, ImGuiCond_Always);
+      ImGui::SetNextWindowSize({togW, togH}, ImGuiCond_Always);
+      ImGui::SetNextWindowBgAlpha(0.80f);
+      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1.f * scale, 1.f * scale));
+      ImGui::Begin("##tog", nullptr,
+          ImGuiWindowFlags_NoTitleBar  | ImGuiWindowFlags_NoResize    |
+          ImGuiWindowFlags_NoMove      | ImGuiWindowFlags_NoScrollbar |
+          ImGuiWindowFlags_NoBringToFrontOnFocus);
+      ImGui::PopStyleVar();
+      ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.f, 1.f));
+      /* fa-chevron-left U+F053 / fa-chevron-right U+F054 */
+      const char* arrow = panelVisible ? "\xEF\x81\x93" : "\xEF\x81\x94";
+      if(ImGui::Button(arrow, {-1.f, -1.f}))
+        panelVisible = !panelVisible;
+      ImGui::PopStyleVar();
+      ImGui::End();
     }
 
     /* ---- load error modal ---- */
     static char sErrorMsg[256] = {};
-    if(_loadErrorMsg[0]) {
+    if(_loadErrorMsg[0])
+    {
         memcpy(sErrorMsg, _loadErrorMsg, sizeof(sErrorMsg));
         _loadErrorMsg[0] = '\0';
         ImGui::OpenPopup("##load_error");
@@ -1098,21 +1156,23 @@ void App::_buildUI() {
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, {0.5f, 0.5f});
     if(ImGui::BeginPopupModal("##load_error", nullptr,
-        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar)) {
-        ImGui::Spacing();
-        ImGui::Text("%s", sErrorMsg);
-        ImGui::Spacing();
-        ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - 80.f * scale) * 0.5f);
-        if(ImGui::Button("OK", {80.f * scale, 0}))
-            ImGui::CloseCurrentPopup();
-        ImGui::Spacing();
-        ImGui::EndPopup();
+        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar))
+    {
+      ImGui::Spacing();
+      ImGui::Text("%s", sErrorMsg);
+      ImGui::Spacing();
+      ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - 80.f * scale) * 0.5f);
+      if(ImGui::Button("OK", {80.f * scale, 0}))
+        ImGui::CloseCurrentPopup();
+      ImGui::Spacing();
+      ImGui::EndPopup();
     }
 }
 
 /* ---- recent files ----------------------------------------------------- */
 
-std::string App::_configDir() {
+std::string App::_configDir()
+{
 #ifdef _WIN32
     const char* base = getenv("APPDATA");
 #else
@@ -1124,12 +1184,14 @@ std::string App::_configDir() {
     return base ? std::string(base) + "/bkpview" : ".";
 }
 
-void App::_loadRecentFiles() {
+void App::_loadRecentFiles()
+{
     std::string path = _configDir() + "/recent.txt";
     FILE* f = fopen(path.c_str(), "r");
     if(!f) return;
     char line[512];
-    while(fgets(line, sizeof(line), f)) {
+    while(fgets(line, sizeof(line), f))
+    {
         size_t len = strlen(line);
         while(len > 0 && (line[len-1] == '\n' || line[len-1] == '\r')) line[--len] = '\0';
         if(len > 0) recentFiles.push_back(line);
@@ -1137,7 +1199,8 @@ void App::_loadRecentFiles() {
     fclose(f);
 }
 
-void App::_saveRecentFiles() {
+void App::_saveRecentFiles()
+{
     std::string dir  = _configDir();
     bkp_mkdir(dir.c_str());
     std::string path = dir + "/recent.txt";
@@ -1147,7 +1210,8 @@ void App::_saveRecentFiles() {
     fclose(f);
 }
 
-void App::_addRecentFile(const char* path) {
+void App::_addRecentFile(const char* path)
+{
     std::string s(path);
     recentFiles.erase(std::remove(recentFiles.begin(), recentFiles.end(), s), recentFiles.end());
     recentFiles.insert(recentFiles.begin(), s);
@@ -1158,7 +1222,8 @@ void App::_addRecentFile(const char* path) {
 
 /* ---- ImGui Vulkan init / MSAA ----------------------------------------- */
 
-void App::_initImGuiVulkan() {
+void App::_initImGuiVulkan()
+{
     ImGui_ImplVulkan_InitInfo ii = {};
     ii.ApiVersion          = VK_API_VERSION_1_3;
     ii.Instance            = ctx.vulkanContext.instance;
@@ -1178,25 +1243,30 @@ void App::_initImGuiVulkan() {
     ImGui_ImplVulkan_Init(&ii);
 }
 
-void App::_applyMsaaChange() {
+void App::_applyMsaaChange()
+{
     bkpWaitDevice(adp);
     renderer.setMSAA(adp, pendingMsaaValue);
 }
 
 /* ---- cleanup ---------------------------------------------------------- */
 
-void App::cleanup() {
+void App::cleanup()
+{
     bkpWaitDevice(adp);
 
     if(splashDS != VK_NULL_HANDLE)
+    {
         ImGui_ImplVulkan_RemoveTexture(splashDS);
+    }
     bkpDestroyImageResource(adp, &splashTex);
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    if(hasModel) {
+    if(hasModel)
+    {
         renderer.unloadModel(adp, &model);
         hasModel = false;
     }
