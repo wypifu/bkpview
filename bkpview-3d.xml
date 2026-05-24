@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="model/gltf-binary">
+    <comment>GL Transmission Format (binary)</comment>
+    <glob pattern="*.glb"/>
+  </mime-type>
+  <mime-type type="model/gltf+json">
+    <comment>GL Transmission Format</comment>
+    <glob pattern="*.gltf"/>
+  </mime-type>
+  <mime-type type="model/obj">
+    <comment>Wavefront OBJ</comment>
+    <glob pattern="*.obj"/>
+  </mime-type>
+  <mime-type type="model/stl">
+    <comment>STL 3D model</comment>
+    <glob pattern="*.stl"/>
+  </mime-type>
+  <mime-type type="application/x-ply">
+    <comment>PLY 3D model</comment>
+    <glob pattern="*.ply"/>
+  </mime-type>
+</mime-info>

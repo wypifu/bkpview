@@ -155,3 +155,9 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders/
     DESTINATION ${CMAKE_INSTALL_DATADIR}/bkpview/shaders
     FILES_MATCHING PATTERN "*.spv"
 )
+install(FILES ${CMAKE_SOURCE_DIR}/bkpview.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+)
+install(FILES ${CMAKE_SOURCE_DIR}/bkpview-3d.xml
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/mime/packages
+)

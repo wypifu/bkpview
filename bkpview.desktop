@@ -5,6 +5,6 @@ Exec=bkpview %f
 Icon=bkpview
 Type=Application
 Categories=Graphics;3DGraphics;Viewer;
-MimeType=model/gltf+json;model/gltf-binary;model/obj;model/stl;
+MimeType=model/gltf-binary;model/gltf+json;model/obj;model/stl;application/x-ply;
 StartupNotify=true
 StartupWMClass=bkpview
